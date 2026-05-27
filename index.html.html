@@ -1,0 +1,654 @@
+
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font-sans, 'Pretendard', sans-serif); }
+  .app { max-width: 680px; margin: 0 auto; padding: 1rem 0.75rem 3rem; }
+  .page { display: none; }
+  .page.active { display: block; }
+  .hero { text-align: center; padding: 2.5rem 1rem 2rem; }
+  .hero-badge { display: inline-block; font-size: 11px; letter-spacing: 0.08em; color: var(--color-text-secondary); border: 0.5px solid var(--color-border-secondary); border-radius: 99px; padding: 4px 12px; margin-bottom: 1.25rem; }
+  .hero-title { font-size: 26px; font-weight: 700; color: var(--color-text-primary); line-height: 1.3; margin-bottom: 0.5rem; }
+  .hero-sub { font-size: 14px; color: var(--color-text-secondary); margin-bottom: 2rem; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 20px; border-radius: var(--border-radius-lg); font-size: 14px; font-weight: 500; cursor: pointer; border: 0.5px solid var(--color-border-secondary); background: var(--color-background-primary); color: var(--color-text-primary); transition: background 0.15s; }
+  .btn:hover { background: var(--color-background-secondary); }
+  .btn-primary { background: var(--color-text-primary); color: var(--color-background-primary); border-color: var(--color-text-primary); }
+  .btn-primary:hover { opacity: 0.85; background: var(--color-text-primary); }
+  .btn-full { width: 100%; justify-content: center; }
+  .card { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 1.25rem; margin-bottom: 1rem; }
+  .section-title { font-size: 13px; font-weight: 500; color: var(--color-text-secondary); margin-bottom: 1rem; letter-spacing: 0.04em; }
+  .survey-form-wrap { max-width: 520px; margin: 0 auto; }
+  input[type=text], textarea { width: 100%; padding: 10px 12px; border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); font-size: 14px; background: var(--color-background-primary); color: var(--color-text-primary); font-family: inherit; resize: none; }
+  input[type=text]:focus, textarea:focus { outline: none; border-color: var(--color-border-primary); }
+  label.field-label { display: block; font-size: 13px; color: var(--color-text-secondary); margin-bottom: 6px; }
+  .field-group { margin-bottom: 1.25rem; }
+  .q-card { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 1rem 1.25rem; margin-bottom: 0.75rem; }
+  .q-title { font-size: 15px; font-weight: 500; color: var(--color-text-primary); margin-bottom: 1rem; line-height: 1.5; }
+  .q-num { font-size: 11px; color: var(--color-text-secondary); margin-bottom: 4px; }
+  .options-grid { display: flex; flex-direction: column; gap: 8px; }
+  .option-btn { display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; border-radius: var(--border-radius-md); border: 0.5px solid var(--color-border-tertiary); background: var(--color-background-secondary); cursor: pointer; font-size: 13px; color: var(--color-text-primary); transition: all 0.12s; text-align: left; line-height: 1.45; }
+  .option-btn:hover { border-color: var(--color-border-primary); }
+  .option-btn.selected { border-color: #3C3489; background: #EEEDFE; color: #3C3489; }
+  .option-check { width: 16px; height: 16px; border-radius: 4px; border: 0.5px solid currentColor; flex-shrink: 0; margin-top: 1px; display: flex; align-items: center; justify-content: center; font-size: 10px; }
+  .progress-bar { height: 3px; background: var(--color-background-secondary); border-radius: 99px; margin-bottom: 1.5rem; overflow: hidden; }
+  .progress-fill { height: 100%; background: #534AB7; border-radius: 99px; transition: width 0.3s; }
+  .nav-row { display: flex; gap: 8px; justify-content: space-between; margin-top: 1.5rem; align-items: center; }
+  .step-label { font-size: 12px; color: var(--color-text-secondary); }
+  .result-type-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 16px; border-radius: 99px; font-size: 13px; font-weight: 500; margin-bottom: 1.5rem; }
+  .result-hero { text-align: center; padding: 2rem 1rem 1.5rem; }
+  .result-name { font-size: 28px; font-weight: 700; color: var(--color-text-primary); margin-bottom: 0.5rem; }
+  .result-quote { font-size: 14px; color: var(--color-text-secondary); font-style: italic; margin-bottom: 1.5rem; }
+  .trait-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 1rem; }
+  .trait-item { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: var(--color-text-primary); }
+  .trait-dot { width: 5px; height: 5px; border-radius: 50%; background: #534AB7; flex-shrink: 0; margin-top: 5px; }
+  .friend-reaction { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 10px 14px; font-size: 13px; color: var(--color-text-secondary); margin-top: 0.75rem; }
+  .share-box { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 10px 12px; font-size: 12px; color: var(--color-text-secondary); word-break: break-all; margin-bottom: 0.75rem; border: 0.5px solid var(--color-border-tertiary); font-family: var(--font-mono); }
+  .tab-row { display: flex; gap: 4px; border-bottom: 0.5px solid var(--color-border-tertiary); margin-bottom: 1.5rem; }
+  .tab-btn { padding: 8px 16px; font-size: 13px; cursor: pointer; border: none; background: transparent; color: var(--color-text-secondary); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tab-btn.active { color: #534AB7; border-bottom-color: #534AB7; font-weight: 500; }
+  .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+  .result-stat-card { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 1rem; }
+  .stat-count { font-size: 24px; font-weight: 700; color: var(--color-text-primary); }
+  .stat-name { font-size: 12px; color: var(--color-text-secondary); margin-top: 2px; }
+  .bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .bar-label { font-size: 12px; color: var(--color-text-secondary); width: 120px; flex-shrink: 0; line-height: 1.3; }
+  .bar-track { flex: 1; height: 6px; background: var(--color-background-secondary); border-radius: 99px; overflow: hidden; }
+  .bar-fill { height: 100%; background: #534AB7; border-radius: 99px; transition: width 0.4s; }
+  .bar-count { font-size: 12px; color: var(--color-text-secondary); width: 28px; text-align: right; flex-shrink: 0; }
+  .axis-chip { display: flex; justify-content: space-between; margin-bottom: 10px; }
+  .axis-item { text-align: center; flex: 1; }
+  .axis-val { font-size: 20px; font-weight: 700; color: #534AB7; }
+  .axis-name { font-size: 11px; color: var(--color-text-secondary); }
+  .divider { height: 0.5px; background: var(--color-border-tertiary); margin: 1.25rem 0; }
+  .copy-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--color-text-primary); color: var(--color-background-primary); padding: 8px 18px; border-radius: 99px; font-size: 13px; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 999; }
+  .copy-toast.show { opacity: 1; }
+  .survey-list-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 0.5px solid var(--color-border-tertiary); }
+  .survey-list-item:last-child { border-bottom: none; }
+  .survey-meta { font-size: 12px; color: var(--color-text-secondary); margin-top: 2px; }
+  .empty-state { text-align: center; padding: 3rem 1rem; color: var(--color-text-secondary); font-size: 14px; }
+  @media (max-width: 480px) { .results-grid { grid-template-columns: 1fr; } .hero-title { font-size: 22px; } }
+</style>
+
+<div class="app" id="app">
+  <div id="toast" class="copy-toast">링크 복사됨!</div>
+
+  <!-- HOME -->
+  <div class="page active" id="page-home">
+    <div class="hero">
+      <div class="hero-badge">친구들이 몰래 정의한</div>
+      <div class="hero-title">당신 유형 테스트</div>
+      <div class="hero-sub">가까워질수록 이상한(?) 사람 도감</div>
+      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="showPage('page-create')"><i class="ti ti-plus"></i> 설문 만들기</button>
+        <button class="btn" onclick="showPage('page-my-surveys')"><i class="ti ti-chart-bar"></i> 내 설문 결과</button>
+      </div>
+    </div>
+    <div style="max-width:460px;margin:0 auto;">
+      <div class="card" style="text-align:center;padding:1.5rem;">
+        <div style="font-size:13px;color:var(--color-text-secondary);line-height:1.8;">
+          설문을 만들면 <strong style="color:var(--color-text-primary)">고유 링크</strong>가 생성돼요<br>
+          친구들이 응답하면 <strong style="color:var(--color-text-primary)">16가지 유형으로 분석</strong>되고<br>
+          결과는 <strong style="color:var(--color-text-primary)">만든 사람만</strong> 볼 수 있어요
+        </div>
+      </div>
+      <div class="card">
+        <div class="section-title">어떤 유형이 나올까?</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+          <span id="type-chips"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CREATE -->
+  <div class="page" id="page-create">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:1.5rem;">
+      <button class="btn" onclick="showPage('page-home')"><i class="ti ti-arrow-left"></i></button>
+      <div style="font-size:17px;font-weight:600;">설문 만들기</div>
+    </div>
+    <div class="survey-form-wrap">
+      <div class="field-group">
+        <label class="field-label">설문 제목 (선택)</label>
+        <input type="text" id="survey-title" placeholder="예: 내 친구 유형 테스트" maxlength="40">
+      </div>
+      <div class="field-group">
+        <label class="field-label">만든 사람 이름 (결과 페이지에 표시)</label>
+        <input type="text" id="creator-name" placeholder="예: 은지" maxlength="20">
+      </div>
+      <div class="field-group">
+        <label class="field-label">비밀번호 (결과 확인용)</label>
+        <input type="text" id="creator-pw" placeholder="숫자나 단어 아무거나" maxlength="20">
+      </div>
+      <div style="background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:12px 14px;font-size:13px;color:var(--color-text-secondary);margin-bottom:1.5rem;line-height:1.6;">
+        설문 링크를 친구들에게 공유하면 돼요.<br>
+        결과는 비밀번호로 잠겨 있어서 만든 사람만 볼 수 있어요.
+      </div>
+      <button class="btn btn-primary btn-full" onclick="createSurvey()">
+        <i class="ti ti-check"></i> 설문 생성하기
+      </button>
+    </div>
+  </div>
+
+  <!-- SHARE -->
+  <div class="page" id="page-share">
+    <div style="text-align:center;padding:2rem 1rem 1.5rem;">
+      <div style="font-size:40px;margin-bottom:0.75rem;">🎉</div>
+      <div style="font-size:20px;font-weight:700;color:var(--color-text-primary);margin-bottom:0.5rem;">설문이 만들어졌어요!</div>
+      <div style="font-size:14px;color:var(--color-text-secondary);margin-bottom:2rem;">아래 링크를 친구들에게 공유해보세요</div>
+    </div>
+    <div style="max-width:460px;margin:0 auto;">
+      <div class="card">
+        <div class="section-title">응답 링크 (친구들에게 공유)</div>
+        <div class="share-box" id="share-link-display">-</div>
+        <button class="btn btn-full" onclick="copyShareLink()"><i class="ti ti-copy"></i> 링크 복사</button>
+      </div>
+      <div class="card">
+        <div class="section-title">결과 확인 (나만 볼 수 있음)</div>
+        <div style="font-size:13px;color:var(--color-text-secondary);margin-bottom:1rem;">비밀번호: <strong id="share-pw-display" style="color:var(--color-text-primary)">-</strong></div>
+        <button class="btn btn-full" onclick="goToMyResults()" style="gap:6px;"><i class="ti ti-chart-bar"></i> 결과 보러 가기</button>
+      </div>
+      <button class="btn btn-full" onclick="showPage('page-home')" style="margin-top:0.5rem;">홈으로</button>
+    </div>
+  </div>
+
+  <!-- ANSWER (survey taking) -->
+  <div class="page" id="page-answer">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:1rem;">
+      <button class="btn" onclick="prevQ()"><i class="ti ti-arrow-left"></i></button>
+      <div style="flex:1;">
+        <div style="font-size:15px;font-weight:600;" id="answer-survey-title">친구 유형 테스트</div>
+        <div style="font-size:12px;color:var(--color-text-secondary);" id="answer-survey-creator">-</div>
+      </div>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+    <div id="q-container"></div>
+    <div class="nav-row">
+      <span class="step-label" id="step-label">1 / 7</span>
+      <div style="display:flex;gap:8px;">
+        <button class="btn" id="btn-prev" onclick="prevQ()"><i class="ti ti-arrow-left"></i> 이전</button>
+        <button class="btn btn-primary" id="btn-next" onclick="nextQ()">다음 <i class="ti ti-arrow-right"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RESULT (single response) -->
+  <div class="page" id="page-result">
+    <div class="result-hero">
+      <div style="font-size:13px;color:var(--color-text-secondary);margin-bottom:0.5rem;" id="result-friend-name">당신은</div>
+      <div class="result-name" id="result-type-name">인간 고양이형</div>
+      <div class="result-quote" id="result-type-quote">"관심은 받고 싶은데 귀찮게는 하지 마세요"</div>
+      <div class="result-type-badge" style="background:#EEEDFE;color:#3C3489;" id="result-badge">유형 배지</div>
+    </div>
+    <div style="max-width:460px;margin:0 auto;">
+      <div class="card">
+        <div class="section-title">특징</div>
+        <div class="trait-list" id="result-traits"></div>
+      </div>
+      <div class="card">
+        <div class="section-title">친구들 반응</div>
+        <div class="friend-reaction" id="result-reactions"></div>
+      </div>
+      <div class="card">
+        <div class="section-title">연애하면</div>
+        <div style="font-size:13px;color:var(--color-text-secondary);" id="result-love"></div>
+      </div>
+      <button class="btn btn-full btn-primary" onclick="showPage('page-home')" style="margin-top:0.5rem;">홈으로</button>
+    </div>
+  </div>
+
+  <!-- MY SURVEYS -->
+  <div class="page" id="page-my-surveys">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:1.5rem;">
+      <button class="btn" onclick="showPage('page-home')"><i class="ti ti-arrow-left"></i></button>
+      <div style="font-size:17px;font-weight:600;">내 설문 결과</div>
+    </div>
+    <div id="my-surveys-list"></div>
+  </div>
+
+  <!-- CREATOR RESULTS -->
+  <div class="page" id="page-creator-results">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:1.5rem;">
+      <button class="btn" onclick="showPage('page-my-surveys')"><i class="ti ti-arrow-left"></i></button>
+      <div>
+        <div style="font-size:17px;font-weight:600;" id="cr-title">설문 결과</div>
+        <div style="font-size:12px;color:var(--color-text-secondary);" id="cr-meta">-</div>
+      </div>
+    </div>
+    <div style="max-width:520px;">
+      <div class="tab-row">
+        <button class="tab-btn active" onclick="switchTab('overview')" id="tab-overview">전체 요약</button>
+        <button class="tab-btn" onclick="switchTab('types')" id="tab-types">유형 분포</button>
+        <button class="tab-btn" onclick="switchTab('share')" id="tab-share">링크 공유</button>
+      </div>
+      <div id="tab-content-overview"></div>
+      <div id="tab-content-types" style="display:none;"></div>
+      <div id="tab-content-share" style="display:none;"></div>
+    </div>
+  </div>
+
+  <!-- PW CHECK -->
+  <div class="page" id="page-pw-check">
+    <div style="text-align:center;padding:3rem 1rem 2rem;">
+      <i class="ti ti-lock" style="font-size:36px;color:var(--color-text-secondary);display:block;margin-bottom:1rem;"></i>
+      <div style="font-size:18px;font-weight:600;margin-bottom:0.5rem;">비밀번호 확인</div>
+      <div style="font-size:13px;color:var(--color-text-secondary);margin-bottom:2rem;">만든 사람만 결과를 볼 수 있어요</div>
+    </div>
+    <div style="max-width:340px;margin:0 auto;">
+      <input type="text" id="pw-input" placeholder="비밀번호 입력" style="margin-bottom:10px;" onkeydown="if(event.key==='Enter')checkPw()">
+      <div style="font-size:12px;color:#E24B4A;margin-bottom:10px;min-height:16px;" id="pw-error"></div>
+      <button class="btn btn-primary btn-full" onclick="checkPw()">확인</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const QUESTIONS = [
+  {
+    id: 'q1', text: '이 사람 카톡 스타일은?', multi: true,
+    options: [
+      { text: '"ㅋㅋ"만 보내고 사라짐', scores: {hidden:2} },
+      { text: '읽고 한참 뒤에 장문 답장', scores: {deep:2} },
+      { text: '갑자기 혼자 TMI 8줄', scores: {extra:2} },
+      { text: '답장하다 딴 얘기로 샘', scores: {impulsive:2} },
+    ]
+  },
+  {
+    id: 'q2', text: '이 사람 진짜 서운하면?', multi: true,
+    options: [
+      { text: '"괜찮아~" 하고 거리 둠', scores: {hidden:2} },
+      { text: '평소보다 더 장난침', scores: {extra:1, hidden:1} },
+      { text: '혼자 상상의 파국영화 찍음', scores: {overload:2} },
+      { text: '바로 티 남', scores: {direct:2} },
+    ]
+  },
+  {
+    id: 'q3', text: '지하철이나 버스 타면 보통…', multi: true,
+    options: [
+      { text: '창밖 보면서 혼자 영화 주인공 됨', scores: {overload:2} },
+      { text: '릴스 보다가 혼자 웃음 참음', scores: {extra:1, impulsive:1} },
+      { text: '음악 들으면서 세상 다 산 표정', scores: {hidden:2} },
+      { text: '사람 구경하면서 혼자 캐릭터 설정함', scores: {deep:1, overload:1} },
+    ]
+  },
+  {
+    id: 'q4', text: '이 사람 연애하면 약간…', multi: true,
+    options: [
+      { text: '강아지 됨', scores: {extra:1, direct:1} },
+      { text: '고양이 됨', scores: {intro:2} },
+      { text: '보호자 모드 ON', scores: {deep:2} },
+      { text: '혼자 서사 찍음', scores: {overload:2} },
+    ]
+  },
+  {
+    id: 'q5', text: '단체여행 가면 이 사람은?', multi: true,
+    options: [
+      { text: '텐션 담당', scores: {extra:2} },
+      { text: '사진 담당', scores: {overload:1} },
+      { text: '길 찾는 담당', scores: {deep:1} },
+      { text: '숙소 침대 담당', scores: {intro:2} },
+    ]
+  },
+  {
+    id: 'q6', text: '이 사람 새벽에 갑자기 보내는 건?', multi: true,
+    options: [
+      { text: '웃긴 릴스', scores: {extra:1} },
+      { text: '의미심장한 노래', scores: {overload:2} },
+      { text: '"야 자냐"', scores: {deep:1} },
+      { text: '아무 말 대잔치', scores: {impulsive:2} },
+    ]
+  },
+  {
+    id: 'q7', text: '이 사람 특징 한 줄 요약', multi: false,
+    options: [
+      { text: '사회화 완료 집순이', scores: {intro:2} },
+      { text: '인간 고양이', scores: {hidden:2} },
+      { text: '리액션 맛집', scores: {extra:2} },
+      { text: '혼자 북치고 감정영화 찍음', scores: {overload:2} },
+    ]
+  }
+];
+
+const TYPES = [
+  { id:'cat', name:'인간 고양이형', quote:'"관심은 받고 싶은데 귀찮게는 하지 마세요"', traits:['답장 느린데 정은 깊음','혼자 시간 필수','은근 질투 많음','좋아하는 사람만 챙김'], reactions:['"얘 왜 이렇게 까칠한데 웃기냐"','"읽씹하는데 또 찾게 됨"'], love:'무심한 척하다 티 다 남', axes:{intro:1,hidden:1,deep:1,overload:0,extra:0,direct:0,impulsive:0} },
+  { id:'home', name:'사회화 완료 집순이형', quote:'"나가는 건 싫은데 막상 나가면 제일 잘 놈"', traits:['약속 전: 귀찮다','약속 중: 텐션 최고','약속 후: 3일 충전 필요'], reactions:['"집 좋아한다면서 왜 제일 시끄러움?"'], love:'밖에서 제일 신남', axes:{intro:1,extra:1,hidden:0,deep:0,overload:0,direct:0,impulsive:0} },
+  { id:'store', name:'인간 편의점형', quote:'"새벽 2시에 제일 생각나는 사람"', traits:['위로 잘함','판단 안 함','사람들 고민 쓰레기통 담당'], reactions:['"얘랑 얘기하면 이상하게 마음 편함"'], love:'상대방 감정 먼저 챙김', axes:{deep:1,direct:1,intro:0,extra:0,hidden:0,overload:0,impulsive:0} },
+  { id:'drama', name:'혼자 파국영화 찍는형', quote:'"아무 일 없는데 혼자 시즌 8까지 감"', traits:['상상력 과다','의미부여 장인','"혹시 나 때문에?" 자주 함'], reactions:['"생각 좀 그만해ㅋㅋ"'], love:'연애에 서사 10편 추가됨', axes:{overload:2,hidden:0,intro:0,deep:0,extra:0,direct:0,impulsive:0} },
+  { id:'dopamine', name:'도파민 과부하형', quote:'"일단 하고 후회하자"', traits:['즉흥력 MAX','갑자기 여행 감','텐션 널뛰기'], reactions:['"얘 따라가면 인생 재밌음"'], love:'충동적으로 고백함', axes:{impulsive:2,extra:1,overload:0,intro:0,hidden:0,deep:0,direct:0} },
+  { id:'quiet', name:'조용한 광인형', quote:'"멀쩡해 보이는데 드립이 이상함"', traits:['평소엔 조용','친해지면 급발진','웃음코드 독특'], reactions:['"얘가 제일 웃긴데 제일 위험함"'], love:'고백을 밈으로 함', axes:{intro:1,hidden:1,impulsive:1,overload:0,extra:0,direct:0,deep:0} },
+  { id:'blanket', name:'인간 담요형', quote:'"옆에 있으면 이상하게 안정됨"', traits:['리액션 따뜻함','배려형','사람 기분 잘 읽음'], reactions:['"얘랑 있으면 기 안 빨림"'], love:'상대방 기분 먼저 챙김', axes:{deep:1,direct:1,extra:1,intro:0,hidden:0,overload:0,impulsive:0} },
+  { id:'chill', name:'읽씹해도 안 미운형', quote:'"답장 느린데 아무도 화 안 냄"', traits:['자기 페이스 강함','인간관계 오래 감','존재 자체가 편안함'], reactions:['"얘는 그냥 얘임"'], love:'느긋하게 연애함', axes:{intro:1,hidden:1,deep:1,direct:0,extra:0,overload:0,impulsive:0} },
+  { id:'hide', name:'감정 숨김 국가대표형', quote:'"안 괜찮으면서 괜찮다 함"', traits:['속얘기 잘 안 함','혼자 해결하려 함','티 안 나게 무너짐'], reactions:['"얘는 진짜 속을 모르겠음"'], love:'좋아해도 티 안 냄', axes:{hidden:2,intro:1,overload:0,deep:0,extra:0,direct:0,impulsive:0} },
+  { id:'react', name:'리액션 중독형', quote:'"와 진짜?? ← 이걸 진짜 잘함"', traits:['분위기 살림','남 얘기 잘 들어줌','사람들 텐션 올려줌'], reactions:['"얘랑 있으면 드립 치게 됨"'], love:'애교 많음', axes:{extra:2,direct:1,deep:1,intro:0,hidden:0,overload:0,impulsive:0} },
+  { id:'tmi', name:'인간 TMI형', quote:'"안 물어봤는데 이미 다 말함"', traits:['생각나는 대로 말함','스토리텔링 강함','혼자 말하다 결론 잃음'], reactions:['"근데 듣다 보면 재밌음"'], love:'연애 썰 무한 제공', axes:{extra:2,impulsive:1,direct:1,intro:0,hidden:0,deep:0,overload:0} },
+  { id:'flirt', name:'은근 플러팅 장인형', quote:'"본인은 아닌 척하는데 다 티남"', traits:['사소한 거 잘 챙김','말투 다정함','상대 헷갈리게 함'], reactions:['"얘는 평소가 플러팅임"'], love:'본인이 플러팅인지 모름', axes:{deep:1,hidden:1,direct:1,intro:0,extra:0,overload:0,impulsive:0} },
+  { id:'espresso', name:'인간 에스프레소형', quote:'"기 빨리는데 자꾸 찾게 됨"', traits:['존재감 강함','취향 확실','호불호 있음'], reactions:['"피곤한데 재밌음"'], love:'강렬하게 연애함', axes:{direct:2,extra:1,hidden:0,intro:0,deep:0,overload:0,impulsive:0} },
+  { id:'zen', name:'해탈한 현자형', quote:'"웬만한 일엔 타격 안 받음"', traits:['멘탈 안정적','싸움 귀찮아함','웬만하면 웃고 넘김'], reactions:['"얘 화내는 거 본 사람 없음"'], love:'감정 기복 없음', axes:{deep:1,intro:1,direct:0,extra:0,hidden:0,overload:0,impulsive:0} },
+  { id:'night', name:'감성 새벽형', quote:'"새벽 되면 갑자기 사람 됨"', traits:['밤 감성 강함','노래 공유 좋아함','새벽에 생각 많아짐'], reactions:['"낮이랑 밤이 다른 사람"'], love:'새벽에 고백함', axes:{overload:1,hidden:1,deep:1,intro:0,extra:0,direct:0,impulsive:0} },
+  { id:'meme', name:'인간 밈 생성기형', quote:'"가만히 있어도 웃김"', traits:['행동 하나하나 레전드','드립 순발력 좋음','친구들 사이 별명 많음'], reactions:['"얘 인생 자체가 콘텐츠임"'], love:'연애도 밈으로 씀', axes:{extra:2,impulsive:1,direct:1,intro:0,hidden:0,deep:0,overload:0} },
+];
+
+let state = {
+  currentPage: 'home',
+  surveys: {},
+  currentSurveyId: null,
+  currentAnswers: {},
+  currentQ: 0,
+  pendingResultSurveyId: null
+};
+
+function getSurveys() {
+  try { return JSON.parse(localStorage.getItem('surveys') || '{}'); } catch { return {}; }
+}
+function saveSurveys(s) {
+  try { localStorage.setItem('surveys', JSON.stringify(s)); } catch {}
+}
+
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  state.currentPage = id;
+  if (id === 'page-my-surveys') renderMySurveys();
+}
+
+function genId() {
+  return Math.random().toString(36).substr(2, 8);
+}
+
+function createSurvey() {
+  const title = document.getElementById('survey-title').value.trim() || '친구 유형 테스트';
+  const creator = document.getElementById('creator-name').value.trim() || '익명';
+  const pw = document.getElementById('creator-pw').value.trim();
+  if (!pw) { alert('비밀번호를 입력해주세요!'); return; }
+  const id = genId();
+  const surveys = getSurveys();
+  surveys[id] = { id, title, creator, pw, responses: [], createdAt: Date.now() };
+  saveSurveys(surveys);
+  const link = window.location.href.split('?')[0] + '?survey=' + id;
+  document.getElementById('share-link-display').textContent = link;
+  document.getElementById('share-pw-display').textContent = pw;
+  state.currentSurveyId = id;
+  showPage('page-share');
+}
+
+function copyShareLink() {
+  const text = document.getElementById('share-link-display').textContent;
+  navigator.clipboard.writeText(text).catch(() => {});
+  const t = document.getElementById('toast');
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+function goToMyResults() {
+  state.pendingResultSurveyId = state.currentSurveyId;
+  showResultsPage(state.currentSurveyId);
+}
+
+function renderMySurveys() {
+  const surveys = getSurveys();
+  const list = document.getElementById('my-surveys-list');
+  const keys = Object.keys(surveys);
+  if (!keys.length) {
+    list.innerHTML = '<div class="empty-state"><i class="ti ti-file" style="font-size:32px;display:block;margin-bottom:1rem;"></i>아직 만든 설문이 없어요</div>';
+    return;
+  }
+  list.innerHTML = keys.reverse().map(k => {
+    const s = surveys[k];
+    const cnt = (s.responses||[]).length;
+    return `<div class="card survey-list-item">
+      <div>
+        <div style="font-size:15px;font-weight:500;color:var(--color-text-primary);">${s.title}</div>
+        <div class="survey-meta">${s.creator} · ${cnt}명 응답 · ${new Date(s.createdAt).toLocaleDateString('ko')}</div>
+      </div>
+      <button class="btn" onclick="openSurveyResults('${k}')"><i class="ti ti-arrow-right"></i></button>
+    </div>`;
+  }).join('');
+}
+
+function openSurveyResults(id) {
+  state.pendingResultSurveyId = id;
+  state.pwCheckTarget = id;
+  document.getElementById('pw-input').value = '';
+  document.getElementById('pw-error').textContent = '';
+  showPage('page-pw-check');
+}
+
+function checkPw() {
+  const val = document.getElementById('pw-input').value.trim();
+  const surveys = getSurveys();
+  const s = surveys[state.pwCheckTarget];
+  if (!s) return;
+  if (val === s.pw) {
+    showResultsPage(state.pwCheckTarget);
+  } else {
+    document.getElementById('pw-error').textContent = '비밀번호가 틀렸어요';
+  }
+}
+
+function showResultsPage(id) {
+  const surveys = getSurveys();
+  const s = surveys[id];
+  if (!s) return;
+  document.getElementById('cr-title').textContent = s.title;
+  document.getElementById('cr-meta').textContent = `${s.creator} · ${(s.responses||[]).length}명 응답`;
+  renderOverview(s);
+  renderTypesTab(s);
+  renderShareTab(id);
+  switchTab('overview');
+  showPage('page-creator-results');
+}
+
+function switchTab(tab) {
+  ['overview','types','share'].forEach(t => {
+    document.getElementById('tab-content-'+t).style.display = t===tab?'block':'none';
+    document.getElementById('tab-'+t).classList.toggle('active', t===tab);
+  });
+}
+
+function renderOverview(s) {
+  const responses = s.responses || [];
+  const axisKeys = ['extra','intro','hidden','direct','deep','overload','impulsive'];
+  const axisNames = {extra:'외향',intro:'내향',hidden:'감정숨김',direct:'직진',deep:'깊게',overload:'과몰입',impulsive:'즉흥'};
+  const totals = {};
+  axisKeys.forEach(k => totals[k] = 0);
+  responses.forEach(r => {
+    axisKeys.forEach(k => totals[k] += (r.scores[k]||0));
+  });
+  const typeCounts = {};
+  TYPES.forEach(t => typeCounts[t.id] = 0);
+  responses.forEach(r => { if(r.typeId) typeCounts[r.typeId] = (typeCounts[r.typeId]||0) + 1; });
+  const sortedTypes = TYPES.map(t => ({...t, count: typeCounts[t.id]||0})).sort((a,b)=>b.count-a.count).slice(0,3);
+  const cnt = responses.length;
+  let html = '';
+  html += `<div class="results-grid" style="margin-bottom:1rem;">
+    <div class="result-stat-card"><div class="stat-count">${cnt}</div><div class="stat-name">총 응답자</div></div>
+    <div class="result-stat-card"><div class="stat-count">${sortedTypes[0]?sortedTypes[0].count:0}</div><div class="stat-name">최다 유형 응답수</div></div>
+  </div>`;
+  if (cnt === 0) { html += '<div class="empty-state" style="padding:2rem;">아직 응답이 없어요</div>'; document.getElementById('tab-content-overview').innerHTML = html; return; }
+  html += `<div class="card"><div class="section-title">TOP 3 유형</div>`;
+  sortedTypes.forEach((t,i) => {
+    if (!t.count) return;
+    html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:0.5px solid var(--color-border-tertiary);">
+      <div style="font-size:14px;font-weight:${i===0?'600':'400'};color:var(--color-text-primary);">${i===0?'🥇':i===1?'🥈':'🥉'} ${t.name}</div>
+      <div style="font-size:13px;color:var(--color-text-secondary);">${t.count}명 (${Math.round(t.count/cnt*100)}%)</div>
+    </div>`;
+  });
+  html += `</div>`;
+  html += `<div class="card"><div class="section-title">성향 축 분포 (누적)</div>`;
+  const maxVal = Math.max(...axisKeys.map(k=>totals[k]),1);
+  axisKeys.forEach(k => {
+    html += `<div class="bar-row"><div class="bar-label">${axisNames[k]}</div><div class="bar-track"><div class="bar-fill" style="width:${Math.round(totals[k]/maxVal*100)}%"></div></div><div class="bar-count">${totals[k]}</div></div>`;
+  });
+  html += `</div>`;
+  document.getElementById('tab-content-overview').innerHTML = html;
+}
+
+function renderTypesTab(s) {
+  const responses = s.responses || [];
+  const typeCounts = {};
+  TYPES.forEach(t => typeCounts[t.id] = 0);
+  responses.forEach(r => { if(r.typeId) typeCounts[r.typeId] = (typeCounts[r.typeId]||0)+1; });
+  const cnt = responses.length || 1;
+  let html = '';
+  const sorted = TYPES.map(t => ({...t, count: typeCounts[t.id]||0})).sort((a,b)=>b.count-a.count);
+  sorted.forEach(t => {
+    const pct = Math.round(t.count/cnt*100);
+    html += `<div class="bar-row"><div class="bar-label" style="width:130px;">${t.name}</div><div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div><div class="bar-count">${t.count}</div></div>`;
+  });
+  document.getElementById('tab-content-types').innerHTML = `<div class="card">${html}</div>`;
+}
+
+function renderShareTab(id) {
+  const surveys = getSurveys();
+  const s = surveys[id];
+  const link = window.location.href.split('?')[0] + '?survey=' + id;
+  document.getElementById('tab-content-share').innerHTML = `
+    <div class="card">
+      <div class="section-title">응답 링크</div>
+      <div class="share-box">${link}</div>
+      <button class="btn btn-full" onclick="copyText('${link}')"><i class="ti ti-copy"></i> 링크 복사</button>
+    </div>
+    <div class="card" style="margin-top:0.75rem;">
+      <div class="section-title">비밀번호</div>
+      <div style="font-size:20px;font-weight:700;color:var(--color-text-primary);letter-spacing:0.1em;">${s.pw}</div>
+    </div>`;
+}
+
+function copyText(text) {
+  navigator.clipboard.writeText(text).catch(()=>{});
+  const t = document.getElementById('toast');
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),1800);
+}
+
+function startSurvey(id) {
+  const surveys = getSurveys();
+  const s = surveys[id];
+  if (!s) { alert('설문을 찾을 수 없어요'); return; }
+  state.currentSurveyId = id;
+  state.currentAnswers = {};
+  state.currentQ = 0;
+  document.getElementById('answer-survey-title').textContent = s.title;
+  document.getElementById('answer-survey-creator').textContent = s.creator + '님의 설문';
+  renderQuestion();
+  showPage('page-answer');
+}
+
+function renderQuestion() {
+  const q = QUESTIONS[state.currentQ];
+  const total = QUESTIONS.length;
+  const pct = Math.round((state.currentQ) / total * 100);
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('step-label').textContent = (state.currentQ+1) + ' / ' + total;
+  document.getElementById('btn-prev').style.display = state.currentQ === 0 ? 'none' : '';
+  document.getElementById('btn-next').textContent = state.currentQ === total-1 ? '결과 보기' : '다음';
+  document.getElementById('btn-next').innerHTML = state.currentQ === total-1
+    ? '결과 보기 <i class="ti ti-sparkles"></i>'
+    : '다음 <i class="ti ti-arrow-right"></i>';
+  const selected = state.currentAnswers[q.id] || [];
+  const html = `<div class="q-card">
+    <div class="q-num">Q${state.currentQ+1} · ${q.multi?'복수 선택 가능':'하나만 선택'}</div>
+    <div class="q-title">${q.text}</div>
+    <div class="options-grid">
+      ${q.options.map((o,i) => `
+        <button class="option-btn ${selected.includes(i)?'selected':''}" onclick="toggleOption('${q.id}',${i},${q.multi})">
+          <span class="option-check">${selected.includes(i)?'✓':''}</span>
+          <span>${o.text}</span>
+        </button>`).join('')}
+    </div>
+  </div>`;
+  document.getElementById('q-container').innerHTML = html;
+}
+
+function toggleOption(qId, idx, multi) {
+  let sel = state.currentAnswers[qId] || [];
+  if (multi) {
+    if (sel.includes(idx)) sel = sel.filter(i=>i!==idx);
+    else sel = [...sel, idx];
+  } else {
+    sel = [idx];
+  }
+  state.currentAnswers[qId] = sel;
+  renderQuestion();
+}
+
+function nextQ() {
+  const q = QUESTIONS[state.currentQ];
+  if (!(state.currentAnswers[q.id]||[]).length) {
+    alert('하나 이상 선택해주세요!');
+    return;
+  }
+  if (state.currentQ < QUESTIONS.length - 1) {
+    state.currentQ++;
+    renderQuestion();
+  } else {
+    submitAnswers();
+  }
+}
+
+function prevQ() {
+  if (state.currentQ > 0) {
+    state.currentQ--;
+    renderQuestion();
+  }
+}
+
+function submitAnswers() {
+  const scores = {extra:0,intro:0,hidden:0,direct:0,deep:0,overload:0,impulsive:0};
+  QUESTIONS.forEach(q => {
+    const sel = state.currentAnswers[q.id] || [];
+    sel.forEach(idx => {
+      const s = q.options[idx].scores;
+      Object.keys(s).forEach(k => { scores[k] = (scores[k]||0) + s[k]; });
+    });
+  });
+  const typeId = calcType(scores);
+  const type = TYPES.find(t => t.id === typeId) || TYPES[0];
+  const surveys = getSurveys();
+  if (surveys[state.currentSurveyId]) {
+    if (!surveys[state.currentSurveyId].responses) surveys[state.currentSurveyId].responses = [];
+    surveys[state.currentSurveyId].responses.push({ scores, typeId, at: Date.now() });
+    saveSurveys(surveys);
+  }
+  showResultPage(type, surveys[state.currentSurveyId]?.creator || '친구');
+}
+
+function calcType(scores) {
+  let best = TYPES[0].id, bestScore = -1;
+  TYPES.forEach(t => {
+    const s = Object.keys(t.axes).reduce((sum, k) => sum + (scores[k]||0) * (t.axes[k]||0), 0);
+    if (s > bestScore) { bestScore = s; best = t.id; }
+  });
+  return best;
+}
+
+function showResultPage(type, creator) {
+  document.getElementById('result-friend-name').textContent = creator + '의 친구가 생각하는 당신은…';
+  document.getElementById('result-type-name').textContent = type.name;
+  document.getElementById('result-type-quote').textContent = type.quote;
+  document.getElementById('result-badge').textContent = type.name;
+  document.getElementById('result-traits').innerHTML = type.traits.map(t =>
+    `<div class="trait-item"><span class="trait-dot"></span><span>${t}</span></div>`).join('');
+  document.getElementById('result-reactions').innerHTML = type.reactions.map(r =>
+    `<div style="margin-bottom:4px;">${r}</div>`).join('');
+  document.getElementById('result-love').textContent = type.love || '-';
+  showPage('page-result');
+}
+
+function initTypeChips() {
+  const container = document.getElementById('type-chips');
+  container.innerHTML = TYPES.map(t =>
+    `<span style="display:inline-block;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:99px;padding:4px 10px;font-size:12px;color:var(--color-text-secondary);margin:2px;">${t.name}</span>`
+  ).join('');
+}
+
+function checkUrlParams() {
+  const p = new URLSearchParams(window.location.search);
+  const sid = p.get('survey');
+  if (sid) {
+    const surveys = getSurveys();
+    if (surveys[sid]) startSurvey(sid);
+  }
+}
+
+initTypeChips();
+checkUrlParams();
+</script>
