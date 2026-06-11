@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>FitPose — AI 자세 코치</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tensorflow/4.10.0/tf.min.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  :root{
+    --blue:#3182F6;--blue-dark:#1B64DA;--blue-light:#EBF3FE;
+    --green:#05C072;--green-light:#E5FAF2;
+    --red:#F04452;--red-light:#FEF0F0;
+    --orange:#FF8C00;--orange-light:#FFF4E5;
+    --gray50:#F9FAFB;--gray100:#F2F4F6;--gray200:#E5E8EB;
+    --gray300:#D1D6DB;--gray400:#B0B8C1;--gray500:#8B95A1;
+    --gray600:#6B7684;--gray700:#4E5968;--gray800:#333D4B;--gray900:#191F28;
+  }
+  html,body{height:100%;background:#F2F4F6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+  #app{max-width:420px;margin:0 auto;min-height:100vh;background:#F2F4F6;display:flex;flex-direction:column;position:relative;overflow:hidden}
+
+  /* ── Screens ── */
+  .screen{display:none;flex-direction:column;flex:1;overflow-y:auto;padding-bottom:88px}
+  .screen.active{display:flex}
+
+  /* ── Hero ── */
+  .hero{background:linear-gradient(135deg,var(--blue) 0%,var(--blue-dark) 100%);border-radius:0 0 28px 28px;padding:52px 24px 32px;color:#fff}
+  .hero-eyebrow{font-size:12px;font-weight:700;letter-spacing:1px;opacity:.7;margin-bottom:8px;text-transform:uppercase}
+  .hero-title{font-size:26px;font-weight:800;line-height:1.3;letter-spacing:-.5px;margin-bottom:8px}
+  .hero-sub{font-size:14px;opacity:.75;margin-bottom:24px;line-height:1.5}
+  .hero-stats{display:flex;gap:10px}
+  .hero-stat{flex:1;background:rgba(255,255,255,.15);border-radius:14px;padding:12px 8px;text-align:center;backdrop-filter:blur(10px)}
+  .hero-stat-val{font-size:17px;font-weight:800}
+  .hero-stat-label{font-size:10px;opacity:.7;margin-top:2px}
+
+  /* ── Section ── */
+  .section{padding:0 20px;margin-top:24px}
+  .section-title{font-size:18px;font-weight:800;color:var(--gray900);letter-spacing:-.3px;margin-bottom:4px}
+  .section-sub{font-size:13px;color:var(--gray500);margin-bottom:16px}
+
+  /* ── Cards ── */
+  .card{background:#fff;border-radius:20px;padding:20px;box-shadow:0 2px 16px rgba(0,0,0,.06)}
+  .ex-card{background:#fff;border-radius:20px;padding:18px 20px;display:flex;align-items:center;gap:16px;cursor:pointer;box-shadow:0 2px 16px rgba(0,0,0,.06);border:none;width:100%;text-align:left;transition:transform .12s,box-shadow .12s;margin-bottom:12px}
+  .ex-card:active{transform:scale(.97);box-shadow:0 1px 8px rgba(0,0,0,.08)}
+  .ex-icon{width:56px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0}
+  .ex-info{flex:1}
+  .ex-name{font-size:16px;font-weight:800;color:var(--gray900);letter-spacing:-.3px;margin-bottom:6px}
+  .ex-tags{display:flex;gap:6px;flex-wrap:wrap}
+  .ex-tag{font-size:11px;border-radius:6px;padding:2px 8px;font-weight:700}
+  .ex-arrow{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700}
+
+  /* ── Analysis Screen ── */
+  .analysis-header{display:flex;align-items:center;padding:16px 20px 12px;gap:12px;background:#fff;position:sticky;top:0;z-index:10;box-shadow:0 1px 0 var(--gray100)}
+  .back-btn{width:36px;height:36px;border-radius:12px;border:none;background:var(--gray100);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--gray700);flex-shrink:0}
+  .header-title{font-size:17px;font-weight:800;color:var(--gray900);letter-spacing:-.4px}
+  .status-badge{border-radius:20px;padding:4px 12px;font-size:12px;font-weight:700;letter-spacing:-.2px;margin-left:auto}
+
+  /* ── Camera View ── */
+  .camera-wrap{margin:16px 20px;border-radius:22px;overflow:hidden;position:relative;background:#0F172A;aspect-ratio:3/4;box-shadow:0 8px 32px rgba(0,0,0,.25)}
+  #videoEl{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+  #poseCanvas{position:absolute;inset:0;width:100%;height:100%}
+  .cam-overlay-top{position:absolute;top:12px;left:12px;background:rgba(0,0,0,.55);backdrop-filter:blur(8px);border-radius:14px;padding:10px 14px;display:flex;gap:16px;align-items:center}
+  .cam-stat{text-align:center}
+  .cam-stat-val{font-size:20px;font-weight:800;color:#fff;line-height:1}
+  .cam-stat-label{font-size:10px;color:rgba(255,255,255,.6);margin-top:2px}
+  .cam-divider{width:1px;background:rgba(255,255,255,.2);height:28px}
+  .score-ring-wrap{position:absolute;top:12px;right:12px}
+  .phase-bar{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;gap:6px}
+  .phase-pill{border-radius:20px;padding:4px 10px;font-size:10px;font-weight:700;color:#fff;background:rgba(255,255,255,.25);transition:all .3s;white-space:nowrap}
+  .phase-pill.active{padding:4px 14px}
+  .cam-idle-msg{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:rgba(255,255,255,.5);gap:8px}
+  .cam-idle-msg .big-icon{font-size:40px;opacity:.4}
+  .cam-idle-msg p{font-size:13px;text-align:center;line-height:1.5}
+
+  /* ── Start Button ── */
+  .start-btn{margin:0 20px 16px;padding:18px;border-radius:16px;border:none;color:#fff;font-size:16px;font-weight:800;cursor:pointer;letter-spacing:-.2px;width:calc(100% - 40px);transition:transform .1s,box-shadow .1s}
+  .start-btn:active{transform:scale(.98)}
+  .start-btn.go{background:linear-gradient(135deg,var(--blue),var(--blue-dark));box-shadow:0 4px 20px rgba(49,130,246,.35)}
+  .start-btn.stop{background:linear-gradient(135deg,var(--red),#C0392B);box-shadow:0 4px 20px rgba(240,68,82,.3)}
+
+  /* ── Feedback Cards ── */
+  .feedback-wrap{padding:0 20px}
+  .feedback-good{background:var(--green-light);border-radius:20px;padding:20px;display:flex;align-items:center;gap:14px}
+  .feedback-good-title{font-size:15px;font-weight:800;color:var(--green);margin-bottom:2px}
+  .feedback-good-sub{font-size:13px;color:#0B9E5C}
+  .correction-list{display:flex;flex-direction:column;gap:10px}
+  .correction-title{font-size:14px;font-weight:800;color:var(--gray800);margin-bottom:12px;letter-spacing:-.2px}
+  .correction-card{background:#fff;border-radius:16px;padding:16px;box-shadow:0 2px 12px rgba(0,0,0,.06)}
+  .correction-issue{font-size:14px;font-weight:800;color:var(--gray900);margin-bottom:8px;display:flex;align-items:center;gap:8px}
+  .correction-fix{font-size:13px;color:var(--gray600);line-height:1.55}
+
+  /* ── Checklist ── */
+  .checklist-item{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--gray100)}
+  .checklist-item:last-child{border-bottom:none}
+  .check-icon{width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0}
+
+  /* ── Guide Screen ── */
+  .tab-bar{display:flex;background:var(--gray100);border-radius:14px;padding:4px;margin:0 20px 20px}
+  .tab-btn{flex:1;padding:10px;border-radius:10px;border:none;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s}
+  .tab-btn.active{background:#fff;color:var(--gray900);box-shadow:0 2px 8px rgba(0,0,0,.08)}
+  .tab-btn:not(.active){background:transparent;color:var(--gray400)}
+
+  /* ── Stats Screen ── */
+  .stats-row{display:flex;align-items:center;gap:14px;background:#fff;border-radius:16px;padding:16px 20px;margin-bottom:10px;box-shadow:0 2px 10px rgba(0,0,0,.04)}
+
+  /* ── Bottom Nav ── */
+  .bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;background:rgba(255,255,255,.96);backdrop-filter:blur(20px);border-top:1px solid var(--gray200);display:flex;padding:8px 0 20px;z-index:100}
+  .nav-btn{flex:1;border:none;background:transparent;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0}
+  .nav-icon{font-size:20px;transition:filter .2s}
+  .nav-icon.inactive{filter:grayscale(1) opacity(.4)}
+  .nav-label{font-size:10px;font-weight:700;transition:color .2s}
+
+  /* ── Permission Error ── */
+  .perm-error{background:var(--red-light);border-radius:16px;padding:16px;margin:0 20px;display:flex;gap:12px;align-items:flex-start}
+  .perm-error-text{font-size:13px;color:var(--red);line-height:1.5;font-weight:600}
+
+  /* ── Loading overlay ── */
+  #loadingOverlay{position:fixed;inset:0;background:rgba(15,23,42,.85);backdrop-filter:blur(4px);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;color:#fff;gap:16px}
+  #loadingOverlay.hidden{display:none}
+  .spinner{width:40px;height:40px;border:3px solid rgba(255,255,255,.2);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .load-text{font-size:14px;font-weight:600;opacity:.8}
+  .load-sub{font-size:12px;opacity:.5}
+
+  /* ── Score SVG ── */
+  .score-svg text{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+
+  /* ── How it works ── */
+  .how-item{display:flex;gap:14px;margin-bottom:14px;align-items:flex-start}
+  .how-item:last-child{margin-bottom:0}
+  .how-step{width:28px;height:28px;border-radius:8px;background:var(--blue);color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .how-title{font-size:13px;font-weight:700;color:var(--gray800)}
+  .how-desc{font-size:12px;color:var(--gray500);margin-top:1px}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Loading Overlay -->
+  <div id="loadingOverlay" class="hidden">
+    <div class="spinner"></div>
+    <div class="load-text" id="loadText">AI 모델 로딩 중...</div>
+    <div class="load-sub" id="loadSub">MoveNet 포즈 감지 모델</div>
+  </div>
+
+  <!-- ── HOME ── -->
+  <div id="screen-home" class="screen active">
+    <div class="hero">
+      <div class="hero-eyebrow">AI 자세 코치</div>
+      <div class="hero-title">올바른 자세로<br>더 강하게 성장하세요</div>
+      <div class="hero-sub">딥러닝이 실시간으로 자세를 분석하고<br>맞춤 교정을 안내합니다</div>
+      <div class="hero-stats">
+        <div class="hero-stat"><div class="hero-stat-val">실시간</div><div class="hero-stat-label">AI 분석</div></div>
+        <div class="hero-stat"><div class="hero-stat-val">3종</div><div class="hero-stat-label">운동 지원</div></div>
+        <div class="hero-stat"><div class="hero-stat-val">즉시</div><div class="hero-stat-label">피드백</div></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">운동 선택</div>
+      <div class="section-sub">분석하고 싶은 운동을 선택하세요</div>
+
+      <button class="ex-card" onclick="openAnalysis('pushup')">
+        <div class="ex-icon" style="background:#EBF3FE">💪</div>
+        <div class="ex-info">
+          <div class="ex-name">푸시업</div>
+          <div class="ex-tags">
+            <span class="ex-tag" style="color:#3182F6;background:#EBF3FE">어깨</span>
+            <span class="ex-tag" style="color:#3182F6;background:#EBF3FE">팔꿈치</span>
+            <span class="ex-tag" style="color:#3182F6;background:#EBF3FE">코어</span>
+          </div>
+        </div>
+        <div class="ex-arrow" style="background:#EBF3FE;color:#3182F6">→</div>
+      </button>
+
+      <button class="ex-card" onclick="openAnalysis('situp')">
+        <div class="ex-icon" style="background:#E5FAF2">🏋️</div>
+        <div class="ex-info">
+          <div class="ex-name">윗몸일으키기</div>
+          <div class="ex-tags">
+            <span class="ex-tag" style="color:#05C072;background:#E5FAF2">복근</span>
+            <span class="ex-tag" style="color:#05C072;background:#E5FAF2">허리</span>
+            <span class="ex-tag" style="color:#05C072;background:#E5FAF2">무릎</span>
+          </div>
+        </div>
+        <div class="ex-arrow" style="background:#E5FAF2;color:#05C072">→</div>
+      </button>
+
+      <button class="ex-card" onclick="openAnalysis('squat')">
+        <div class="ex-icon" style="background:#FFF4E5">🦵</div>
+        <div class="ex-info">
+          <div class="ex-name">스쿼트</div>
+          <div class="ex-tags">
+            <span class="ex-tag" style="color:#FF8C00;background:#FFF4E5">무릎</span>
+            <span class="ex-tag" style="color:#FF8C00;background:#FFF4E5">엉덩이</span>
+            <span class="ex-tag" style="color:#FF8C00;background:#FFF4E5">척추</span>
+          </div>
+        </div>
+        <div class="ex-arrow" style="background:#FFF4E5;color:#FF8C00">→</div>
+      </button>
+    </div>
+
+    <div class="section">
+      <div class="card">
+        <div style="font-size:14px;font-weight:800;color:var(--gray800);margin-bottom:16px">어떻게 작동하나요?</div>
+        <div class="how-item"><div class="how-step">01</div><div><div class="how-title">운동 선택</div><div class="how-desc">분석할 운동을 선택합니다</div></div></div>
+        <div class="how-item"><div class="how-step">02</div><div><div class="how-title">카메라 허용</div><div class="how-desc">전신이 보이도록 1.5~2m 거리에 폰을 세웁니다</div></div></div>
+        <div class="how-item"><div class="how-step">03</div><div><div class="how-title">AI 실시간 분석</div><div class="how-desc">MoveNet이 17개 관절을 초당 30회 감지합니다</div></div></div>
+        <div class="how-item"><div class="how-step">04</div><div><div class="how-title">즉시 교정</div><div class="how-desc">문제 관절을 빨갛게 표시하고 해결법을 알려줍니다</div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ANALYSIS ── -->
+  <div id="screen-analysis" class="screen">
+    <div class="analysis-header">
+      <button class="back-btn" onclick="goBack()">←</button>
+      <div class="header-title" id="analysisTitle">💪 푸시업 분석</div>
+      <span class="status-badge" id="statusBadge" style="background:#EBF3FE;color:#3182F6">준비</span>
+    </div>
+
+    <div class="camera-wrap" id="cameraWrap">
+      <video id="videoEl" autoplay playsinline muted></video>
+      <canvas id="poseCanvas"></canvas>
+      <div class="cam-idle-msg" id="idleMsg">
+        <div class="big-icon">📷</div>
+        <p>분석 시작을 누르면<br>카메라가 켜집니다</p>
+      </div>
+      <div class="cam-overlay-top" id="camStats" style="display:none">
+        <div class="cam-stat"><div class="cam-stat-val" id="repCount">0</div><div class="cam-stat-label">횟수</div></div>
+        <div class="cam-divider"></div>
+        <div class="cam-stat"><div class="cam-stat-val" id="timerDisplay">00:00</div><div class="cam-stat-label">시간</div></div>
+      </div>
+      <div class="score-ring-wrap" id="scoreRingWrap" style="display:none">
+        <svg width="64" height="64" id="scoreRingSvg" style="transform:rotate(-90deg)">
+          <circle cx="32" cy="32" r="26" fill="none" stroke="#E5E8EB" stroke-width="5"/>
+          <circle cx="32" cy="32" r="26" fill="none" stroke="#05C072" stroke-width="5"
+            stroke-dasharray="163.4" stroke-dashoffset="24" stroke-linecap="round"
+            id="scoreArc" style="transition:stroke-dashoffset .5s ease,stroke .4s"/>
+          <text x="32" y="32" text-anchor="middle" dominant-baseline="central"
+            style="transform:rotate(90deg);transform-origin:50% 50%;font-size:14px;font-weight:800;fill:#05C072"
+            id="scoreText">85</text>
+        </svg>
+      </div>
+      <div class="phase-bar" id="phaseBar" style="display:none"></div>
+    </div>
+
+    <div id="permError" style="display:none" class="perm-error">
+      <span style="font-size:20px">🚫</span>
+      <div class="perm-error-text">카메라 권한이 거부되었습니다.<br>브라우저 설정에서 카메라를 허용해 주세요.</div>
+    </div>
+
+    <button class="start-btn go" id="startBtn" onclick="toggleAnalysis()">▶ 분석 시작</button>
+
+    <div class="feedback-wrap" id="feedbackArea">
+      <!-- Checklist when idle -->
+      <div id="checklistCard" class="card">
+        <div style="font-size:15px;font-weight:800;color:var(--gray900);margin-bottom:14px;letter-spacing:-.3px">올바른 자세 체크리스트</div>
+        <div id="checklistItems"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── GUIDE ── -->
+  <div id="screen-guide" class="screen">
+    <div class="analysis-header">
+      <button class="back-btn" onclick="showScreen('home')">←</button>
+      <div class="header-title">운동 가이드</div>
+    </div>
+    <div style="padding:16px 20px 8px">
+      <div style="font-size:14px;color:var(--gray500);margin-bottom:16px">운동을 선택해 올바른 자세와 교정 방법을 확인하세요</div>
+      <div style="display:flex;gap:10px;margin-bottom:20px;overflow-x:auto;padding-bottom:4px">
+        <button onclick="selectGuideEx('pushup')" id="gtab-pushup" class="ex-tag" style="font-size:13px;padding:8px 16px;border-radius:12px;border:none;cursor:pointer;white-space:nowrap;font-weight:700;background:#EBF3FE;color:#3182F6">💪 푸시업</button>
+        <button onclick="selectGuideEx('situp')" id="gtab-situp" class="ex-tag" style="font-size:13px;padding:8px 16px;border-radius:12px;border:none;cursor:pointer;white-space:nowrap;font-weight:700;background:var(--gray100);color:var(--gray500)">🏋️ 윗몸일으키기</button>
+        <button onclick="selectGuideEx('squat')" id="gtab-squat" class="ex-tag" style="font-size:13px;padding:8px 16px;border-radius:12px;border:none;cursor:pointer;white-space:nowrap;font-weight:700;background:var(--gray100);color:var(--gray500)">🦵 스쿼트</button>
+      </div>
+    </div>
+    <div class="tab-bar">
+      <button class="tab-btn active" id="gtab-good" onclick="switchGuideTab('good')">올바른 자세</button>
+      <button class="tab-btn" id="gtab-corrections" onclick="switchGuideTab('corrections')">교정 방법</button>
+    </div>
+    <div style="padding:0 20px" id="guideContent"></div>
+  </div>
+
+  <!-- ── STATS ── -->
+  <div id="screen-stats" class="screen">
+    <div class="analysis-header">
+      <div class="header-title" style="margin-left:0">나의 통계</div>
+    </div>
+    <div style="padding:0 20px">
+      <div class="card" style="margin-bottom:16px">
+        <div style="font-size:14px;color:var(--gray500);margin-bottom:16px">이번 세션 자세 점수</div>
+        <div style="display:flex;justify-content:space-around" id="statsScores"></div>
+      </div>
+      <div id="statsRows"></div>
+      <div class="card" style="margin-top:16px;background:var(--blue-light)">
+        <div style="font-size:13px;font-weight:700;color:var(--blue);margin-bottom:6px">💡 오늘의 팁</div>
+        <div style="font-size:13px;color:var(--blue-dark);line-height:1.6" id="dailyTip"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── BOTTOM NAV ── -->
+  <div class="bottom-nav">
+    <button class="nav-btn" onclick="showScreen('home')" id="nav-home">
+      <span class="nav-icon" id="nicon-home">🏠</span>
+      <span class="nav-label" style="color:var(--blue)" id="nlabel-home">홈</span>
+    </button>
+    <button class="nav-btn" onclick="showScreen('guide')" id="nav-guide">
+      <span class="nav-icon inactive" id="nicon-guide">📋</span>
+      <span class="nav-label" style="color:var(--gray400)" id="nlabel-guide">가이드</span>
+    </button>
+    <button class="nav-btn" onclick="showScreen('stats')" id="nav-stats">
+      <span class="nav-icon inactive" id="nicon-stats">📊</span>
+      <span class="nav-label" style="color:var(--gray400)" id="nlabel-stats">통계</span>
+    </button>
+  </div>
+</div>
+
+<script>
+// ─── Exercise Data ───────────────────────────────────────────────────────────
+const EXERCISES = {
+  pushup: {
+    name:'푸시업', emoji:'💪', color:'#3182F6', light:'#EBF3FE',
+    phases:['준비','하강','최저점','상승'],
+    goodPosture:[
+      '몸통이 머리부터 발끝까지 일직선을 유지합니다',
+      '팔꿈치를 내릴 때 90° 각도를 만듭니다',
+      '시선은 약 30cm 앞 바닥을 향합니다',
+      '엉덩이가 처지거나 너무 높지 않게 유지합니다',
+    ],
+    corrections:[
+      {issue:'엉덩이가 너무 높아요',fix:'코어에 힘을 주고 엉덩이를 낮춰 몸통을 일직선으로 만드세요',sev:'error',joints:[11,12,13,14]},
+      {issue:'팔꿈치가 너무 벌어졌어요',fix:'팔꿈치를 몸통 방향으로 45° 정도 붙여주세요',sev:'error',joints:[7,8,9,10]},
+      {issue:'허리가 과도하게 굽었어요',fix:'복근에 힘을 주어 척추를 중립 위치로 유지하세요',sev:'warning',joints:[11,12]},
+      {issue:'목이 너무 들려있어요',fix:'시선을 바닥으로 향하게 해 목을 척추와 일직선으로 맞추세요',sev:'warning',joints:[0,1,2,3,4]},
+    ],
+    // keypoint indices for pose analysis (MoveNet 17 keypoints)
+    // 0:nose,1:left_eye,2:right_eye,3:left_ear,4:right_ear,
+    // 5:left_shoulder,6:right_shoulder,7:left_elbow,8:right_elbow,
+    // 9:left_wrist,10:right_wrist,11:left_hip,12:right_hip,
+    // 13:left_knee,14:right_knee,15:left_ankle,16:right_ankle
+    analyze(kps) {
+      const issues=[];
+      const elbow = calcAngle(kps[5],kps[7],kps[9]);
+      const hip = calcAngle(kps[5],kps[11],kps[13]);
+      if(elbow>130) issues.push(this.corrections[1]);
+      if(hip<150) issues.push(this.corrections[2]);
+      const score = Math.max(40, 100 - (issues.length*20) - (elbow>150?15:0));
+      return {issues, score: Math.min(100,score)};
+    }
+  },
+  situp: {
+    name:'윗몸일으키기', emoji:'🏋️', color:'#05C072', light:'#E5FAF2',
+    phases:['준비','수축','최고점','이완'],
+    goodPosture:[
+      '무릎은 90° 정도 구부려 세웁니다',
+      '손은 귀 옆에 가볍게 위치시킵니다',
+      '복근의 힘으로 상체를 들어올립니다',
+      '목에 무리를 주지 않도록 주의합니다',
+    ],
+    corrections:[
+      {issue:'목을 당기고 있어요',fix:'손으로 목을 당기지 말고 시선은 천장을 향하게 하세요',sev:'error',joints:[0,1,2,3,4]},
+      {issue:'발이 들려있어요',fix:'발을 바닥에 단단히 고정하세요',sev:'warning',joints:[15,16]},
+      {issue:'허리를 너무 높이 들어요',fix:'복근만 사용해 어깨를 살짝 들어올리는 것으로 충분합니다',sev:'warning',joints:[5,6,11,12]},
+      {issue:'동작이 너무 빠릅니다',fix:'2초 올라가고 2초 내려오는 템포를 유지하세요',sev:'info',joints:[]},
+    ],
+    analyze(kps) {
+      const issues=[];
+      const knee = calcAngle(kps[11],kps[13],kps[15]);
+      const torso = calcAngle(kps[5],kps[11],kps[13]);
+      if(knee>140) issues.push(this.corrections[1]);
+      if(torso<70) issues.push(this.corrections[2]);
+      const score = Math.max(40, 100-(issues.length*20));
+      return {issues, score: Math.min(100,score)};
+    }
+  },
+  squat: {
+    name:'스쿼트', emoji:'🦵', color:'#FF8C00', light:'#FFF4E5',
+    phases:['준비','하강','최저점','상승'],
+    goodPosture:[
+      '무릎이 발끝을 넘지 않도록 합니다',
+      '등은 곧게 펴고 가슴을 들어올립니다',
+      '발은 어깨 너비로 벌리고 발끝을 약간 밖으로 향합니다',
+      '허벅지가 바닥과 평행이 될 때까지 내려갑니다',
+    ],
+    corrections:[
+      {issue:'무릎이 발끝을 넘어요',fix:'체중을 발뒤꿈치에 싣고 무릎이 발끝 방향과 일치하도록 조정하세요',sev:'error',joints:[13,14,15,16]},
+      {issue:'무릎이 안으로 모여요',fix:'무릎을 바깥쪽으로 밀어 발끝과 일직선이 되게 하세요',sev:'error',joints:[11,12,13,14]},
+      {issue:'상체가 너무 앞으로 숙여요',fix:'가슴을 들고 코어에 힘을 주어 척추를 세우세요',sev:'warning',joints:[5,6,11,12]},
+      {issue:'깊이가 충분하지 않아요',fix:'허벅지가 지면과 평행이 될 때까지 더 깊이 내려가세요',sev:'info',joints:[11,12,13,14]},
+    ],
+    analyze(kps) {
+      const issues=[];
+      const leftKnee = calcAngle(kps[11],kps[13],kps[15]);
+      const rightKnee = calcAngle(kps[12],kps[14],kps[16]);
+      const hip = calcAngle(kps[5],kps[11],kps[13]);
+      const avgKnee = (leftKnee+rightKnee)/2;
+      if(avgKnee>160) issues.push(this.corrections[3]);
+      if(avgKnee<70) issues.push(this.corrections[0]);
+      if(hip<80) issues.push(this.corrections[2]);
+      const score = Math.max(40, 100-(issues.length*20));
+      return {issues, score: Math.min(100,score)};
+    }
+  }
+};
+
+// ─── State ────────────────────────────────────────────────────────────────────
+let currentEx = 'pushup';
+let isRunning = false;
+let model = null;
+let animFrame = null;
+let timerInterval = null;
+let elapsed = 0;
+let repCount = 0;
+let phaseIndex = 0;
+let lastScore = 85;
+let sessionScores = {pushup:[], situp:[], squat:[]};
+let guideEx = 'pushup';
+let guideTab = 'good';
+const tips = [
+  '운동 전 5분 스트레칭으로 부상을 예방하세요',
+  '거울 앞에서 자세를 확인하는 습관을 들이세요',
+  '올바른 자세로 10개가 잘못된 자세로 30개보다 낫습니다',
+  '호흡 조절이 자세 유지만큼 중요합니다',
+  '근육통이 있을 때는 충분히 휴식하세요',
+];
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function calcAngle(a, b, c) {
+  if(!a||!b||!c) return 180;
+  const ab=[b.x-a.x, b.y-a.y];
+  const cb=[b.x-c.x, b.y-c.y];
+  const dot=ab[0]*cb[0]+ab[1]*cb[1];
+  const magAB=Math.sqrt(ab[0]**2+ab[1]**2);
+  const magCB=Math.sqrt(cb[0]**2+cb[1]**2);
+  if(magAB===0||magCB===0) return 180;
+  return Math.acos(Math.max(-1,Math.min(1,dot/(magAB*magCB))))*180/Math.PI;
+}
+
+function formatTime(s){
+  return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+}
+
+// ─── Screen Navigation ────────────────────────────────────────────────────────
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+name).classList.add('active');
+  ['home','guide','stats'].forEach(t=>{
+    const active = t===name;
+    document.getElementById('nicon-'+t).className='nav-icon'+(active?'':' inactive');
+    document.getElementById('nlabel-'+t).style.color=active?'var(--blue)':'var(--gray400)';
+  });
+  if(name==='stats') renderStats();
+  if(name==='guide') renderGuide();
+}
+
+function openAnalysis(exId) {
+  currentEx = exId;
+  const ex = EXERCISES[exId];
+  document.getElementById('analysisTitle').textContent = ex.emoji+' '+ex.name+' 분석';
+  document.getElementById('statusBadge').textContent='준비';
+  document.getElementById('statusBadge').style.cssText=`background:${ex.light};color:${ex.color};border-radius:20px;padding:4px 12px;font-size:12px;font-weight:700;letter-spacing:-.2px;margin-left:auto`;
+  renderChecklist();
+  renderPhaseBar();
+  showScreen('analysis');
+  // Hide bottom nav while in analysis
+  document.querySelector('.bottom-nav').style.display='none';
+}
+
+function goBack() {
+  if(isRunning) stopAnalysis();
+  showScreen('home');
+  document.querySelector('.bottom-nav').style.display='flex';
+}
+
+// ─── Checklist ───────────────────────────────────────────────────────────────
+function renderChecklist() {
+  const ex = EXERCISES[currentEx];
+  const cont = document.getElementById('checklistItems');
+  cont.innerHTML = ex.goodPosture.map((item,i)=>`
+    <div class="checklist-item">
+      <div class="check-icon" style="background:${ex.light};color:${ex.color}">✓</div>
+      <span style="font-size:14px;color:var(--gray700);line-height:1.4">${item}</span>
+    </div>
+  `).join('');
+  document.getElementById('checklistCard').style.display='block';
+}
+
+function renderPhaseBar() {
+  const ex = EXERCISES[currentEx];
+  const bar = document.getElementById('phaseBar');
+  bar.innerHTML = ex.phases.map((p,i)=>`
+    <div class="phase-pill ${i===phaseIndex?'active':''}" 
+         id="phase-${i}" 
+         style="${i===phaseIndex?'background:'+ex.color:''}">
+      ${i===phaseIndex?p:'·'}
+    </div>
+  `).join('');
+}
+
+function updatePhaseBar() {
+  const ex = EXERCISES[currentEx];
+  ex.phases.forEach((_,i)=>{
+    const el = document.getElementById('phase-'+i);
+    if(!el) return;
+    const active = i===phaseIndex;
+    el.className='phase-pill'+(active?' active':'');
+    el.style.background = active ? ex.color : '';
+    el.textContent = active ? ex.phases[i] : '·';
+  });
+}
+
+// ─── Score Ring ───────────────────────────────────────────────────────────────
+function updateScoreRing(score) {
+  const arc = document.getElementById('scoreArc');
+  const txt = document.getElementById('scoreText');
+  const circumference = 163.4;
+  const offset = circumference - (score/100)*circumference;
+  const color = score>=80?'#05C072':score>=60?'#FF8C00':'#F04452';
+  arc.style.strokeDashoffset = offset;
+  arc.style.stroke = color;
+  txt.style.fill = color;
+  txt.textContent = score;
+}
+
+// ─── Status Badge ─────────────────────────────────────────────────────────────
+function updateStatus(type) {
+  const badge = document.getElementById('statusBadge');
+  const map = {
+    good:{bg:'#E5FAF2',color:'#05C072',label:'올바른 자세'},
+    warning:{bg:'#FFF4E5',color:'#FF8C00',label:'주의 필요'},
+    error:{bg:'#FEF0F0',color:'#F04452',label:'교정 필요'},
+    analyzing:{bg:'#EBF3FE',color:'#3182F6',label:'분석 중'},
+    ready:{bg:EXERCISES[currentEx].light,color:EXERCISES[currentEx].color,label:'준비'},
+  };
+  const s = map[type]||map.ready;
+  badge.style.background=s.bg;
+  badge.style.color=s.color;
+  badge.textContent=s.label;
+}
+
+// ─── Feedback ─────────────────────────────────────────────────────────────────
+function showFeedback(issues, score) {
+  const area = document.getElementById('feedbackArea');
+  if(issues.length===0) {
+    area.innerHTML=`
+      <div class="feedback-good">
+        <span style="font-size:28px">🎯</span>
+        <div>
+          <div class="feedback-good-title">완벽한 자세예요!</div>
+          <div class="feedback-good-sub">현재 자세를 유지하며 계속하세요</div>
+        </div>
+      </div>`;
+  } else {
+    area.innerHTML=`
+      <div class="feedback-wrap">
+        <div class="correction-title">교정이 필요해요</div>
+        <div class="correction-list">
+          ${issues.map(c=>`
+            <div class="correction-card" style="border-left:4px solid ${c.sev==='error'?'#F04452':c.sev==='warning'?'#FF8C00':'#3182F6'}">
+              <div class="correction-issue">
+                <span>${c.sev==='error'?'🔴':c.sev==='warning'?'🟡':'🔵'}</span>
+                <span>${c.issue}</span>
+              </div>
+              <div class="correction-fix">${c.fix}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>`;
+  }
+}
+
+// ─── MoveNet Load ─────────────────────────────────────────────────────────────
+async function loadModel() {
+  const overlay = document.getElementById('loadingOverlay');
+  const loadText = document.getElementById('loadText');
+  const loadSub = document.getElementById('loadSub');
+  overlay.classList.remove('hidden');
+
+  try {
+    loadText.textContent = 'TensorFlow.js 초기화 중...';
+    loadSub.textContent = '잠시만 기다려주세요';
+    await tf.ready();
+
+    loadText.textContent = 'MoveNet 모델 로딩 중...';
+    loadSub.textContent = '포즈 감지 AI 모델 (~5MB)';
+
+    // Load MoveNet via tfjs-models CDN
+    const script1 = document.createElement('script');
+    script1.src = 'https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.0/dist/pose-detection.min.js';
+    document.head.appendChild(script1);
+    await new Promise((res,rej)=>{script1.onload=res;script1.onerror=rej});
+
+    model = await poseDetection.createDetector(
+      poseDetection.SupportedModels.MoveNet,
+      {modelType: poseDetection.movenet.modelType.SINGLEPOSE_THUNDER}
+    );
+
+    loadText.textContent = '완료!';
+    await new Promise(r=>setTimeout(r,400));
+    overlay.classList.add('hidden');
+    return true;
+  } catch(e) {
+    console.error('Model load error:', e);
+    loadText.textContent = '모델 로드 실패';
+    loadSub.textContent = '시뮬레이션 모드로 실행합니다';
+    await new Promise(r=>setTimeout(r,1500));
+    overlay.classList.add('hidden');
+    return false;
+  }
+}
+
+// ─── Camera ───────────────────────────────────────────────────────────────────
+async function startCamera() {
+  const video = document.getElementById('videoEl');
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:'user', width:{ideal:640}, height:{ideal:480}},
+      audio:false
+    });
+    video.srcObject = stream;
+    await new Promise(r=>{video.onloadedmetadata=r});
+    await video.play();
+    return true;
+  } catch(e) {
+    console.error('Camera error:', e);
+    document.getElementById('permError').style.display='flex';
+    return false;
+  }
+}
+
+function stopCamera() {
+  const video = document.getElementById('videoEl');
+  if(video.srcObject) {
+    video.srcObject.getTracks().forEach(t=>t.stop());
+    video.srcObject = null;
+  }
+}
+
+// ─── Pose Drawing ─────────────────────────────────────────────────────────────
+const CONNECTIONS = [
+  [0,1],[0,2],[1,3],[2,4],[5,6],[5,7],[7,9],[6,8],[8,10],
+  [5,11],[6,12],[11,12],[11,13],[13,15],[12,14],[14,16]
+];
+
+function drawPose(canvas, keypoints, issueJoints, score) {
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0,0,W,H);
+
+  const isGood = issueJoints.length===0;
+  const goodColor = '#05C072';
+  const badColor = '#F04452';
+
+  // Draw connections
+  CONNECTIONS.forEach(([a,b])=>{
+    const kpA = keypoints[a], kpB = keypoints[b];
+    if(!kpA||!kpB||kpA.score<0.3||kpB.score<0.3) return;
+    const x1=kpA.x/640*W, y1=kpA.y/480*H;
+    const x2=kpB.x/640*W, y2=kpB.y/480*H;
+    const isIssue = issueJoints.includes(a)||issueJoints.includes(b);
+    ctx.strokeStyle = isIssue ? badColor : goodColor;
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.globalAlpha = 0.85;
+    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+    ctx.globalAlpha = 1;
+  });
+
+  // Draw keypoints
+  keypoints.forEach((kp,i)=>{
+    if(!kp||kp.score<0.3) return;
+    const x=kp.x/640*W, y=kp.y/480*H;
+    const isIssue = issueJoints.includes(i);
+    const color = isIssue ? badColor : goodColor;
+    const r = [5,6,7,8,9,10,11,12,13,14].includes(i) ? 5 : 4;
+
+    // Glow
+    const glow = ctx.createRadialGradient(x,y,0,x,y,r*2.5);
+    glow.addColorStop(0, color+'CC');
+    glow.addColorStop(1, color+'00');
+    ctx.fillStyle=glow;
+    ctx.beginPath(); ctx.arc(x,y,r*2.5,0,Math.PI*2); ctx.fill();
+
+    // Core dot
+    ctx.fillStyle='#fff';
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle=color; ctx.lineWidth=2;
+    ctx.stroke();
+  });
+}
+
+// Simulation fallback keypoints
+function simKeypoints(exId, t) {
+  const base = {
+    pushup:[
+      {x:320,y:80},{x:305,y:75},{x:335,y:75},{x:295,y:78},{x:345,y:78},
+      {x:250,y:140},{x:390,y:140},
+      {x:200,y:200},{x:440,y:200},
+      {x:160,y:260},{x:480,y:260},
+      {x:250,y:310},{x:390,y:310},
+      {x:240,y:380},{x:400,y:380},
+      {x:235,y:450},{x:405,y:450},
+    ],
+    situp:[
+      {x:320,y:80},{x:305,y:75},{x:335,y:75},{x:295,y:78},{x:345,y:78},
+      {x:280,y:150},{x:360,y:150},
+      {x:260,y:220},{x:380,y:220},
+      {x:245,y:290},{x:395,y:290},
+      {x:290,y:300},{x:350,y:300},
+      {x:260,y:380},{x:380,y:380},
+      {x:240,y:440},{x:400,y:440},
+    ],
+    squat:[
+      {x:320,y:60},{x:307,y:55},{x:333,y:55},{x:298,y:58},{x:342,y:58},
+      {x:280,y:130},{x:360,y:130},
+      {x:265,y:200},{x:375,y:200},
+      {x:255,y:265},{x:385,y:265},
+      {x:275,y:270},{x:365,y:270},
+      {x:250,y:360},{x:390,y:360},
+      {x:245,y:440},{x:395,y:440},
+    ]
+  };
+  const kps = (base[exId]||base.squat).map(k=>({...k,score:0.9}));
+  // Animate slightly
+  const bounce = Math.sin(t*2)*4;
+  kps.forEach(k=>{k.y+=bounce;});
+  return kps;
+}
+
+// ─── Analysis Loop ────────────────────────────────────────────────────────────
+let useSimulation = false;
+let simTime = 0;
+let phaseTimer = 0;
+let lastIssues = [];
+
+async function analysisLoop() {
+  if(!isRunning) return;
+  const video = document.getElementById('videoEl');
+  const canvas = document.getElementById('poseCanvas');
+  canvas.width = video.videoWidth||640;
+  canvas.height = video.videoHeight||480;
+
+  let keypoints;
+  try {
+    if(model && !useSimulation && video.readyState===4) {
+      const poses = await model.estimatePoses(video);
+      if(poses&&poses[0]&&poses[0].keypoints) {
+        keypoints = poses[0].keypoints;
+      } else {
+        keypoints = simKeypoints(currentEx, simTime);
+      }
+    } else {
+      simTime += 0.05;
+      keypoints = simKeypoints(currentEx, simTime);
+    }
+  } catch(e) {
+    simTime += 0.05;
+    keypoints = simKeypoints(currentEx, simTime);
+  }
+
+  // Analyze
+  const ex = EXERCISES[currentEx];
+  const kpMap = keypoints.map(k=>({x:k.x,y:k.y,score:k.score||0.9}));
+  const {issues, score} = ex.analyze(kpMap);
+  lastScore = score;
+  sessionScores[currentEx].push(score);
+
+  // Collect all issue joint indices
+  const issueJoints = issues.flatMap(i=>i.joints||[]);
+
+  drawPose(canvas, kpMap, issueJoints, score);
+  updateScoreRing(Math.round(score));
+
+  // Phase progression
+  phaseTimer++;
+  if(phaseTimer>40) {
+    phaseTimer=0;
+    phaseIndex=(phaseIndex+1)%ex.phases.length;
+    if(phaseIndex===0) repCount++;
+    document.getElementById('repCount').textContent=repCount;
+    updatePhaseBar();
+  }
+
+  // Status + feedback
+  if(issues.length===0) updateStatus('good');
+  else if(issues.some(i=>i.sev==='error')) updateStatus('error');
+  else updateStatus('warning');
+
+  // Update feedback every ~40 frames
+  if(phaseTimer%20===0) {
+    showFeedback(issues, Math.round(score));
+  }
+
+  animFrame = requestAnimationFrame(analysisLoop);
+}
+
+// ─── Start / Stop ─────────────────────────────────────────────────────────────
+async function toggleAnalysis() {
+  if(isRunning) { stopAnalysis(); return; }
+  await startAnalysis();
+}
+
+async function startAnalysis() {
+  const btn = document.getElementById('startBtn');
+  btn.disabled = true;
+  btn.textContent = '준비 중...';
+
+  // Load model if not yet loaded
+  if(!model) {
+    const ok = await loadModel();
+    useSimulation = !ok;
+  }
+
+  // Start camera
+  const camOk = await startCamera();
+  if(!camOk) {
+    useSimulation = true;
+  }
+
+  isRunning = true;
+  repCount = 0;
+  elapsed = 0;
+  phaseIndex = 0;
+  phaseTimer = 0;
+  simTime = 0;
+
+  document.getElementById('idleMsg').style.display='none';
+  document.getElementById('camStats').style.display='flex';
+  document.getElementById('scoreRingWrap').style.display='block';
+  document.getElementById('phaseBar').style.display='flex';
+  document.getElementById('checklistCard').style.display='none';
+  document.getElementById('permError').style.display='none';
+  renderPhaseBar();
+
+  btn.disabled = false;
+  btn.textContent = '⏹ 분석 종료';
+  btn.className = 'start-btn stop';
+  updateStatus('analyzing');
+
+  timerInterval = setInterval(()=>{
+    elapsed++;
+    document.getElementById('timerDisplay').textContent = formatTime(elapsed);
+  },1000);
+
+  analysisLoop();
+}
+
+function stopAnalysis() {
+  isRunning = false;
+  if(animFrame) { cancelAnimationFrame(animFrame); animFrame=null; }
+  if(timerInterval) { clearInterval(timerInterval); timerInterval=null; }
+  stopCamera();
+
+  const canvas = document.getElementById('poseCanvas');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  document.getElementById('idleMsg').style.display='flex';
+  document.getElementById('camStats').style.display='none';
+  document.getElementById('scoreRingWrap').style.display='none';
+  document.getElementById('phaseBar').style.display='none';
+  document.getElementById('feedbackArea').innerHTML='';
+  renderChecklist();
+  document.getElementById('checklistCard').style.display='block';
+
+  const btn = document.getElementById('startBtn');
+  btn.textContent = '▶ 분석 시작';
+  btn.className = 'start-btn go';
+  updateStatus('ready');
+}
+
+// ─── Guide ────────────────────────────────────────────────────────────────────
+function selectGuideEx(exId) {
+  guideEx = exId;
+  ['pushup','situp','squat'].forEach(id=>{
+    const btn = document.getElementById('gtab-'+id);
+    const ex = EXERCISES[id];
+    if(id===exId) {
+      btn.style.background=ex.light;
+      btn.style.color=ex.color;
+    } else {
+      btn.style.background='var(--gray100)';
+      btn.style.color='var(--gray500)';
+    }
+  });
+  renderGuide();
+}
+
+function switchGuideTab(tab) {
+  guideTab = tab;
+  document.getElementById('gtab-good').className='tab-btn'+(tab==='good'?' active':'');
+  document.getElementById('gtab-corrections').className='tab-btn'+(tab==='corrections'?' active':'');
+  renderGuide();
+}
+
+function renderGuide() {
+  const ex = EXERCISES[guideEx];
+  const cont = document.getElementById('guideContent');
+  if(guideTab==='good') {
+    cont.innerHTML = ex.goodPosture.map((item,i)=>`
+      <div style="background:#fff;border-radius:16px;padding:16px;display:flex;align-items:center;gap:14px;margin-bottom:12px;box-shadow:0 2px 12px rgba(0,0,0,.05)">
+        <div style="width:36px;height:36px;border-radius:12px;background:${ex.light};display:flex;align-items:center;justify-content:center;color:${ex.color};font-weight:800;font-size:16px;flex-shrink:0">${i+1}</div>
+        <span style="font-size:14px;color:var(--gray800);line-height:1.4">${item}</span>
+      </div>
+    `).join('');
+  } else {
+    cont.innerHTML = ex.corrections.map(c=>`
+      <div style="background:#fff;border-radius:18px;padding:18px;margin-bottom:14px;box-shadow:0 2px 12px rgba(0,0,0,.06)">
+        <div style="margin-bottom:10px">
+          <span style="background:${c.sev==='error'?'#FEF0F0':c.sev==='warning'?'#FFF4E5':'#EBF3FE'};color:${c.sev==='error'?'#F04452':c.sev==='warning'?'#FF8C00':'#3182F6'};border-radius:8px;padding:3px 9px;font-size:11px;font-weight:700">
+            ${c.sev==='error'?'즉시 교정':c.sev==='warning'?'주의':'개선 권장'}
+          </span>
+        </div>
+        <div style="font-size:15px;font-weight:800;color:var(--gray900);margin-bottom:8px;letter-spacing:-.2px">${c.issue}</div>
+        <div style="font-size:13px;color:var(--gray600);line-height:1.6;background:var(--gray50);border-radius:12px;padding:10px 14px">💡 ${c.fix}</div>
+      </div>
+    `).join('');
+  }
+}
+
+// ─── Stats ────────────────────────────────────────────────────────────────────
+function avgScore(arr) {
+  if(!arr.length) return '--';
+  return Math.round(arr.reduce((a,b)=>a+b,0)/arr.length);
+}
+
+function renderScoreRingSmall(score, color) {
+  const c = 2*Math.PI*26;
+  const offset = score==='--' ? c : c-(score/100)*c;
+  const col = score==='--'?'#D1D6DB':score>=80?'#05C072':score>=60?'#FF8C00':'#F04452';
+  return `<svg width="64" height="64" style="transform:rotate(-90deg)">
+    <circle cx="32" cy="32" r="26" fill="none" stroke="#E5E8EB" stroke-width="5"/>
+    <circle cx="32" cy="32" r="26" fill="none" stroke="${col}" stroke-width="5"
+      stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${offset.toFixed(1)}" stroke-linecap="round"/>
+    <text x="32" y="32" text-anchor="middle" dominant-baseline="central"
+      style="transform:rotate(90deg);transform-origin:50% 50%;font-size:13px;font-weight:800;fill:${col};font-family:-apple-system,sans-serif">
+      ${score}
+    </text>
+  </svg>`;
+}
+
+function renderStats() {
+  const scores = document.getElementById('statsScores');
+  scores.innerHTML = Object.entries(EXERCISES).map(([id,ex])=>`
+    <div style="text-align:center">
+      ${renderScoreRingSmall(avgScore(sessionScores[id]), ex.color)}
+      <div style="font-size:12px;color:var(--gray600);margin-top:6px;font-weight:600">${ex.name}</div>
+    </div>
+  `).join('');
+
+  const totalReps = Object.values(sessionScores).reduce((a,b)=>a+b.length,0);
+  const rows = document.getElementById('statsRows');
+  rows.innerHTML = [
+    {label:'이번 세션 분석 횟수', value:totalReps+'회', icon:'🔥'},
+    {label:'푸시업 평균 점수', value:(avgScore(sessionScores.pushup)||'--')+'점', icon:'💪'},
+    {label:'윗몸일으키기 평균 점수', value:(avgScore(sessionScores.situp)||'--')+'점', icon:'🏋️'},
+    {label:'스쿼트 평균 점수', value:(avgScore(sessionScores.squat)||'--')+'점', icon:'🦵'},
+  ].map(s=>`
+    <div class="stats-row">
+      <span style="font-size:20px">${s.icon}</span>
+      <span style="font-size:14px;color:var(--gray700);flex:1">${s.label}</span>
+      <span style="font-size:16px;font-weight:800;color:var(--gray900)">${s.value}</span>
+    </div>
+  `).join('');
+
+  document.getElementById('dailyTip').textContent = tips[Math.floor(Date.now()/86400000)%tips.length];
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+renderGuide();
+renderStats();
+</script>
+</body>
+</html>
