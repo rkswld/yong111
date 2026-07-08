@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>심해압력 단면 실험실 — 해저터널 형상 시뮬레이터</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-deep:#060b14;
+    --bg-panel:#0e1626;
+    --bg-panel2:#121d33;
+    --line:#1e2c47;
+    --ink:#dce6f2;
+    --ink-dim:#7f8fac;
+    --ink-bright:#f5f8fc;
+    --cyan:#3fd0c9;
+    --amber:#f2c14e;
+    --orange:#f2984b;
+    --red:#e85c4a;
+    --mono:'IBM Plex Mono',monospace;
+    --kr:'Noto Sans KR',sans-serif;
+    --hero:'Black Han Sans',sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(ellipse at 20% -10%, #142238 0%, transparent 55%),
+      linear-gradient(180deg,#060b14 0%, #050810 100%);
+    color:var(--ink);
+    font-family:var(--kr);
+    min-height:100vh;
+    padding:0 0 60px 0;
+  }
+  .wrap{max-width:1220px;margin:0 auto;padding:28px 20px 0;}
+
+  header{
+    display:flex;flex-direction:column;gap:6px;
+    padding-bottom:22px;border-bottom:1px solid var(--line);margin-bottom:26px;
+  }
+  .eyebrow{
+    font-family:var(--mono);font-size:12px;letter-spacing:.18em;
+    color:var(--cyan);text-transform:uppercase;display:flex;align-items:center;gap:10px;
+  }
+  .eyebrow::before{content:'';width:18px;height:1px;background:var(--cyan);display:inline-block;}
+  h1{
+    font-family:var(--hero);
+    font-weight:400;
+    font-size:clamp(28px,4.2vw,44px);
+    line-height:1.15;
+    margin:2px 0 4px;
+    color:var(--ink-bright);
+    letter-spacing:.01em;
+  }
+  h1 span{color:var(--cyan);}
+  .sub{color:var(--ink-dim);font-size:14.5px;max-width:640px;line-height:1.6;}
+
+  main{display:grid;grid-template-columns:280px 1fr;gap:20px;}
+  @media(max-width:860px){ main{grid-template-columns:1fr;} }
+
+  .panel{
+    background:linear-gradient(180deg,var(--bg-panel) 0%, var(--bg-panel2) 100%);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:20px;
+  }
+
+  .ctrl-title{
+    font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--ink-dim);
+    text-transform:uppercase;margin:0 0 14px;
+  }
+
+  .shape-tabs{display:flex;gap:8px;margin-bottom:22px;}
+  .shape-btn{
+    flex:1;background:#0b1424;border:1px solid var(--line);border-radius:10px;
+    padding:12px 4px 9px;cursor:pointer;color:var(--ink-dim);transition:.15s;
+    display:flex;flex-direction:column;align-items:center;gap:6px;font-family:var(--kr);font-size:12px;
+  }
+  .shape-btn svg{width:26px;height:26px;}
+  .shape-btn:hover{border-color:#33507a;color:var(--ink);}
+  .shape-btn.active{border-color:var(--cyan);color:var(--ink-bright);background:#0d2230;box-shadow:0 0 0 1px rgba(63,208,201,.25) inset;}
+  .shape-btn.active svg{filter:drop-shadow(0 0 4px rgba(63,208,201,.6));}
+
+  .field{margin-bottom:20px;}
+  .field label{
+    display:flex;justify-content:space-between;align-items:baseline;
+    font-size:13px;color:var(--ink);margin-bottom:8px;
+  }
+  .field label b{font-family:var(--mono);color:var(--cyan);font-weight:500;font-size:13px;}
+  input[type=range]{
+    -webkit-appearance:none;width:100%;height:4px;border-radius:2px;
+    background:linear-gradient(90deg,var(--cyan),var(--line));outline:none;cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:16px;height:16px;border-radius:50%;
+    background:var(--ink-bright);border:3px solid var(--cyan);cursor:grab;
+  }
+  input[type=range]::-moz-range-thumb{
+    width:16px;height:16px;border-radius:50%;background:var(--ink-bright);
+    border:3px solid var(--cyan);cursor:grab;
+  }
+
+  .autoplay{
+    width:100%;margin-top:4px;padding:11px;border-radius:10px;border:1px solid var(--cyan);
+    background:transparent;color:var(--cyan);font-family:var(--mono);font-size:12.5px;
+    letter-spacing:.06em;cursor:pointer;transition:.15s;
+  }
+  .autoplay:hover{background:rgba(63,208,201,.1);}
+  .autoplay.running{background:var(--cyan);color:#04211f;}
+
+  .note{
+    margin-top:18px;padding-top:14px;border-top:1px dashed var(--line);
+    font-size:11.5px;color:var(--ink-dim);line-height:1.6;
+  }
+
+  .visual-col{display:flex;flex-direction:column;gap:18px;}
+  .stage{
+    background:linear-gradient(180deg,var(--bg-panel) 0%, var(--bg-panel2) 100%);
+    border:1px solid var(--line);border-radius:14px;padding:18px;
+    display:grid;grid-template-columns:64px 1fr 220px;gap:14px;
+  }
+  @media(max-width:760px){ .stage{grid-template-columns:44px 1fr;} .stage .readout{grid-column:1/3;} }
+
+  .gauge-box{position:relative;border-radius:10px;overflow:hidden;border:1px solid var(--line);}
+  .gauge-box canvas{display:block;width:100%;height:100%;background:#040810;}
+  .gauge-cap{position:absolute;font-family:var(--mono);font-size:9px;color:var(--ink-dim);left:0;right:0;text-align:center;}
+  .gauge-cap.top{top:3px;}
+  .gauge-cap.bottom{bottom:3px;}
+
+  .canvas-box{position:relative;border-radius:10px;overflow:hidden;border:1px solid var(--line);}
+  canvas{display:block;width:100%;height:auto;background:#040810;}
+  .depth-tag{
+    position:absolute;top:10px;left:12px;font-family:var(--mono);font-size:11px;
+    color:var(--ink-dim);background:rgba(4,8,16,.6);padding:4px 8px;border-radius:6px;
+    border:1px solid var(--line);
+  }
+  .depth-tag b{color:var(--cyan);}
+
+  .readout{display:flex;flex-direction:column;gap:10px;justify-content:center;}
+  .stat{background:#0a1322;border:1px solid var(--line);border-radius:10px;padding:12px 14px;}
+  .stat .k{font-size:10.5px;color:var(--ink-dim);letter-spacing:.08em;text-transform:uppercase;font-family:var(--mono);}
+  .stat .v{font-family:var(--mono);font-size:20px;color:var(--ink-bright);margin-top:4px;}
+  .stat .v small{font-size:12px;color:var(--ink-dim);font-family:var(--kr);}
+  .sf-bar{height:6px;border-radius:3px;background:var(--line);margin-top:8px;overflow:hidden;}
+  .sf-fill{height:100%;border-radius:3px;transition:width .25s, background .25s;}
+  .sf-label{font-family:var(--mono);font-size:11px;margin-top:6px;}
+
+  .compare{
+    background:linear-gradient(180deg,var(--bg-panel) 0%, var(--bg-panel2) 100%);
+    border:1px solid var(--line);border-radius:14px;padding:20px;
+  }
+  .compare h2{
+    font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--ink-dim);
+    text-transform:uppercase;margin:0 0 16px;font-weight:500;
+  }
+  .bars{display:flex;gap:22px;align-items:flex-end;height:160px;padding:0 6px;}
+  @media(max-width:640px){ .bars{gap:12px;} }
+  .barcol{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:8px;}
+  .bartrack{width:100%;max-width:70px;height:120px;display:flex;align-items:flex-end;background:#0a1322;border-radius:6px 6px 0 0;overflow:hidden;border:1px solid var(--line);border-bottom:none;position:relative;}
+  .barfill{width:100%;transition:height .3s, background .3s;}
+  .barlimit{position:absolute;left:0;right:0;height:1px;background:#e85c4a88;}
+  .barlbl{font-family:var(--kr);font-size:12px;color:var(--ink);text-align:center;}
+  .barval{font-family:var(--mono);font-size:12px;color:var(--ink-dim);}
+  .barcol.current .barlbl{color:var(--cyan);font-weight:700;}
+
+  footer{max-width:1220px;margin:26px auto 0;padding:0 20px;color:var(--ink-dim);font-size:11.5px;line-height:1.7;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Undersea Tunnel Cross-Section Lab</div>
+    <h1>수심이 깊어질수록, <span>단면 형상</span>이 운명을 가른다</h1>
+    <p class="sub">한–일 해저터널처럼 깊은 바다 밑을 지나는 구조물은 수압을 어떻게 견디느냐가 관건입니다. 왼쪽 수심 게이지의 점이 실제로 바다 속으로 가라앉는 모습을 보면서, 원형·사각형·삼각형 단면이 같은 수압 아래서 어떻게 다르게 버티는지 직접 확인해보세요.</p>
+  </header>
+
+  <main>
+    <div class="panel">
+      <div class="ctrl-title">01 · 단면 형상 선택</div>
+      <div class="shape-tabs">
+        <button class="shape-btn active" data-shape="circle">
+          <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/></svg>
+          원형
+        </button>
+        <button class="shape-btn" data-shape="square">
+          <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="16" height="16" rx="1" stroke="currentColor" stroke-width="2"/></svg>
+          사각형
+        </button>
+        <button class="shape-btn" data-shape="triangle">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 3 L21 20 L3 20 Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+          삼각형
+        </button>
+      </div>
+
+      <div class="ctrl-title">02 · 환경 및 구조 변수</div>
+
+      <div class="field">
+        <label>수심 (해수면 기준) <b id="depthVal">100 m</b></label>
+        <input type="range" id="depth" min="0" max="1000" value="100" step="5">
+      </div>
+
+      <div class="field">
+        <label>벽체 두께 <b id="thickVal">0.60 m</b></label>
+        <input type="range" id="thick" min="20" max="150" value="60" step="1">
+      </div>
+
+      <div class="field">
+        <label>단면 크기 (반경/반폭) <b id="sizeVal">5.0 m</b></label>
+        <input type="range" id="size" min="30" max="80" value="50" step="1">
+      </div>
+
+      <button class="autoplay" id="autoBtn">▶ 심해로 하강 (0→1000m)</button>
+
+      <div class="note">* 단순화된 교육용 물리 모형입니다. 원형은 얇은 압력용기의 후프응력식(σ=PR/t)을 그대로 사용하고, 사각·삼각형은 평판 굽힘으로 인한 응력 집중을 반영한 배율을 곱해 계산합니다. 실제 터널 설계값과는 다릅니다.</div>
+    </div>
+
+    <div class="visual-col">
+      <div class="stage">
+        <div class="gauge-box">
+          <span class="gauge-cap top">0m</span>
+          <canvas id="gauge" width="64" height="520"></canvas>
+          <span class="gauge-cap bottom">1000m</span>
+        </div>
+        <div class="canvas-box">
+          <div class="depth-tag">수심 <b id="depthTag">100</b> m · 수압 <b id="pressTag">1.01</b> MPa</div>
+          <canvas id="cv" width="560" height="520"></canvas>
+        </div>
+        <div class="readout">
+          <div class="stat">
+            <div class="k">최대 응력 σmax</div>
+            <div class="v" id="stressVal">8.4 <small>MPa</small></div>
+          </div>
+          <div class="stat">
+            <div class="k">허용 응력 대비 안전계수</div>
+            <div class="v" id="sfVal">4.18×</div>
+            <div class="sf-bar"><div class="sf-fill" id="sfFill"></div></div>
+            <div class="sf-label" id="sfLabel">안전</div>
+          </div>
+          <div class="stat">
+            <div class="k">응력 집중 배율 (원형 대비)</div>
+            <div class="v" id="scfVal">1.0×</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="compare">
+        <h2>03 · 형상별 최대 응력 비교 (현재 수심·두께·크기 기준)</h2>
+        <div class="bars" id="bars"></div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    물리 모형 메모 — 수압 P = ρ·g·h (ρ=1025 kg/m³, 해수 기준). 원형 단면은 외압을 순수 압축(후프응력)으로 균등 분산시켜 곡면 구조 중 가장 효율적입니다. 평평한 벽면을 가진 사각·삼각형은 벽면 중앙과 모서리에 굽힘응력이 집중되며, 변의 개수가 적고 변 길이가 길수록(사각형) 집중도가 더 커집니다. 허용응력은 철근콘크리트 라이닝 기준 약 35MPa로 가정했습니다. 왼쪽 게이지의 점 위치와 하강 속도는 실제 물리 시간과 무관하며 이해를 돕기 위한 연출입니다.
+  </footer>
+</div>
+
+<script>
+(function(){
+  const cv = document.getElementById('cv');
+  const ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  const cx = W/2;
+  const pxPerM = 26;
+  const surfaceY = 128;   // 해수면 위치 (수심 0m)
+  const seabedY  = 392;   // 해저면 위치 (수심 MAX_DEPTH, 아래에서 정의)
+  const travelSpan = seabedY - surfaceY;
+
+  const gaugeCv = document.getElementById('gauge');
+  const gctx = gaugeCv.getContext('2d');
+  const GW = gaugeCv.width, GH = gaugeCv.height;
+
+  const RHO_G = 1025 * 9.81;
+  const ALLOW_MPA = 35;
+  const MAX_DEPTH = 1000;
+  const SCF = { circle: 1.0, square: 3.0, triangle: 2.0 };
+  const LABEL = { circle:'원형', square:'사각형', triangle:'삼각형' };
+
+  let state = { shape:'circle', depth:100, thick:0.60, size:5.0 };
+  let targetDepth = 100;
+  let displayDepth = 100;
+  let autoplayActive = false;
+  let bubbles = [];
+  for(let i=0;i<26;i++){
+    bubbles.push({ x:Math.random()*W, y:Math.random()*H, r:1+Math.random()*2.2, sp:0.25+Math.random()*0.7, drift:(Math.random()-0.5)*0.3 });
+  }
+
+  const depthEl = document.getElementById('depth');
+  const thickEl = document.getElementById('thick');
+  const sizeEl = document.getElementById('size');
+  const depthVal = document.getElementById('depthVal');
+  const thickVal = document.getElementById('thickVal');
+  const sizeVal = document.getElementById('sizeVal');
+  const depthTag = document.getElementById('depthTag');
+  const pressTag = document.getElementById('pressTag');
+  const stressVal = document.getElementById('stressVal');
+  const sfVal = document.getElementById('sfVal');
+  const sfFill = document.getElementById('sfFill');
+  const sfLabel = document.getElementById('sfLabel');
+  const scfVal = document.getElementById('scfVal');
+  const barsEl = document.getElementById('bars');
+  const autoBtn = document.getElementById('autoBtn');
+
+  document.querySelectorAll('.shape-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.shape-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      state.shape = btn.dataset.shape;
+    });
+  });
+
+  depthEl.addEventListener('input', e=>{
+    state.depth = +e.target.value;
+    targetDepth = state.depth;
+    depthVal.textContent = state.depth + ' m';
+  });
+  thickEl.addEventListener('input', e=>{ state.thick = (+e.target.value)/100; thickVal.textContent = state.thick.toFixed(2)+' m'; });
+  sizeEl.addEventListener('input', e=>{ state.size = (+e.target.value)/10; sizeVal.textContent = state.size.toFixed(1)+' m'; });
+
+  autoBtn.addEventListener('click', function(){
+    if(autoplayActive){ autoplayActive=false; autoBtn.classList.remove('running'); autoBtn.textContent='▶ 심해로 하강 (0→1000m)'; return; }
+    autoplayActive = true;
+    autoBtn.classList.add('running');
+    autoBtn.textContent = '■ 하강 멈추기';
+    const startTime = performance.now();
+    const duration = 13000;
+    depthEl.value = 0; state.depth = 0; targetDepth = 0; depthVal.textContent='0 m';
+    function step(ts){
+      if(!autoplayActive) return;
+      const t = Math.min(1, (ts-startTime)/duration);
+      const eased = t<0.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2;
+      const d = eased*MAX_DEPTH;
+      state.depth = d; targetDepth = d;
+      depthEl.value = Math.round(d);
+      depthVal.textContent = Math.round(d)+' m';
+      if(t<1){ requestAnimationFrame(step); }
+      else { autoplayActive=false; autoBtn.classList.remove('running'); autoBtn.textContent='▶ 심해로 하강 (0→1000m)'; }
+    }
+    requestAnimationFrame(step);
+  });
+
+  function pressureMPa(depth){ return RHO_G * depth / 1e6; }
+
+  function maxStress(shape, depth, thick, size){
+    const P = pressureMPa(depth) * 1e6;
+    const sigmaPa = SCF[shape] * P * size / thick;
+    return sigmaPa / 1e6;
+  }
+
+  function colorForRatio(r){
+    const stops = [
+      {t:0.0, c:[63,208,201]},
+      {t:0.55, c:[242,193,78]},
+      {t:1.0, c:[242,152,75]},
+      {t:1.4, c:[232,92,74]}
+    ];
+    let rr = Math.max(0, Math.min(1.4, r));
+    for(let i=0;i<stops.length-1;i++){
+      const a=stops[i], b=stops[i+1];
+      if(rr>=a.t && rr<=b.t){
+        const f=(rr-a.t)/(b.t-a.t);
+        const c=[0,1,2].map(k=>Math.round(a.c[k]+(b.c[k]-a.c[k])*f));
+        return `rgb(${c[0]},${c[1]},${c[2]})`;
+      }
+    }
+    return `rgb(${stops[stops.length-1].c.join(',')})`;
+  }
+
+  function shapePoints(shape, size){
+    const R = size * pxPerM;
+    const N = 240;
+    const pts = [];
+    if(shape==='circle'){
+      for(let i=0;i<N;i++){
+        const a = i/N*Math.PI*2;
+        pts.push({ x:Math.cos(a)*R, y:Math.sin(a)*R, nx:Math.cos(a), ny:Math.sin(a), f:1.0 });
+      }
+    } else if(shape==='square'){
+      const sides = [
+        {p0:[-R,-R], p1:[R,-R], n:[0,-1]},
+        {p0:[R,-R], p1:[R,R], n:[1,0]},
+        {p0:[R,R], p1:[-R,R], n:[0,1]},
+        {p0:[-R,R], p1:[-R,-R], n:[-1,0]},
+      ];
+      const per = N/4;
+      sides.forEach(s=>{
+        for(let i=0;i<per;i++){
+          const t = i/per;
+          const u = t*2-1;
+          const x = s.p0[0] + (s.p1[0]-s.p0[0])*t;
+          const y = s.p0[1] + (s.p1[1]-s.p0[1])*t;
+          const bend = 1 - u*u;
+          const cornerDist = Math.min(Math.abs(u-1), Math.abs(u+1))/2;
+          const spike = 0.9*Math.exp(-Math.pow(cornerDist/0.09,2));
+          const f = 0.35 + 0.65*bend + spike;
+          pts.push({x,y,nx:s.n[0],ny:s.n[1],f});
+        }
+      });
+    } else {
+      const ang0 = -Math.PI/2;
+      const verts = [0,1,2].map(k=>{
+        const a = ang0 + k*Math.PI*2/3;
+        return [Math.cos(a)*R, Math.sin(a)*R];
+      });
+      const per = N/3;
+      const cxp = (verts[0][0]+verts[1][0]+verts[2][0])/3;
+      const cyp = (verts[0][1]+verts[1][1]+verts[2][1])/3;
+      for(let k=0;k<3;k++){
+        const p0 = verts[k], p1 = verts[(k+1)%3];
+        const mx=(p0[0]+p1[0])/2, my=(p0[1]+p1[1])/2;
+        let nx = mx-cxp, ny = my-cyp;
+        const nl = Math.hypot(nx,ny); nx/=nl; ny/=nl;
+        for(let i=0;i<per;i++){
+          const t = i/per;
+          const u = t*2-1;
+          const x = p0[0] + (p1[0]-p0[0])*t;
+          const y = p0[1] + (p1[1]-p0[1])*t;
+          const bend = 1 - u*u;
+          const cornerDist = Math.min(Math.abs(u-1), Math.abs(u+1))/2;
+          const spike = 1.15*Math.exp(-Math.pow(cornerDist/0.08,2));
+          const f = 0.3 + 0.55*bend + spike;
+          pts.push({x,y,nx,ny,f});
+        }
+      }
+    }
+    let maxF = Math.max(...pts.map(p=>p.f));
+    pts.forEach(p=> p.fn = p.f/maxF );
+    return pts;
+  }
+
+  function updateBubbles(depth){
+    const speedMul = 0.6 + depth/MAX_DEPTH*1.4;
+    bubbles.forEach(b=>{
+      b.y -= b.sp*speedMul;
+      b.x += b.drift;
+      if(b.y < -6){ b.y = H+6; b.x = Math.random()*W; }
+      if(b.x<-6) b.x=W+6; if(b.x>W+6) b.x=-6;
+    });
+  }
+
+  function drawGauge(depth){
+    gctx.clearRect(0,0,GW,GH);
+    const top=10, bottom=GH-10, span=bottom-top;
+    const grad = gctx.createLinearGradient(0,top,0,bottom);
+    grad.addColorStop(0,'#2a7a92');
+    grad.addColorStop(0.15,'#154a63');
+    grad.addColorStop(0.5,'#0d2c45');
+    grad.addColorStop(1,'#040d1a');
+    gctx.fillStyle = grad;
+    gctx.fillRect(0,top,GW,bottom-top);
+
+    gctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    gctx.lineWidth = 1.5;
+    gctx.beginPath(); gctx.moveTo(0,top); gctx.lineTo(GW,top); gctx.stroke();
+
+    for(let d=0; d<=MAX_DEPTH; d+=200){
+      const y = top + (d/MAX_DEPTH)*span;
+      gctx.strokeStyle = 'rgba(220,230,242,0.28)';
+      gctx.beginPath(); gctx.moveTo(GW-9,y); gctx.lineTo(GW,y); gctx.stroke();
+    }
+
+    const my = top + (depth/MAX_DEPTH)*span;
+    const trailGrad = gctx.createLinearGradient(0,top,0,my);
+    trailGrad.addColorStop(0,'rgba(63,208,201,0)');
+    trailGrad.addColorStop(1,'rgba(63,208,201,0.55)');
+    gctx.fillStyle = trailGrad;
+    gctx.fillRect(GW/2-1.5, top, 3, my-top);
+
+    gctx.beginPath();
+    gctx.arc(GW/2, my, 8, 0, Math.PI*2);
+    gctx.fillStyle = 'rgba(63,208,201,0.18)';
+    gctx.fill();
+    gctx.beginPath();
+    gctx.arc(GW/2, my, 4.5, 0, Math.PI*2);
+    gctx.fillStyle = '#3fd0c9';
+    gctx.shadowColor = '#3fd0c9';
+    gctx.shadowBlur = 12;
+    gctx.fill();
+    gctx.shadowBlur = 0;
+    gctx.strokeStyle = '#dff9f6';
+    gctx.lineWidth = 1.2;
+    gctx.stroke();
+  }
+
+  function seabedTopAt(x){
+    return seabedY + 34 + Math.sin(x*0.028)*7 + Math.sin(x*0.071+1.4)*5 + Math.sin(x*0.013+0.6)*9;
+  }
+
+  function drawShape(depth, sigmaMax, overallRatio, ts){
+    ctx.clearRect(0,0,W,H);
+    const depthFrac = Math.min(1, depth/MAX_DEPTH);
+
+    // 물기둥 배경 (수심이 깊어질수록 더 어두워짐)
+    const g = ctx.createLinearGradient(0,0,0,H);
+    g.addColorStop(0, `rgb(${20+ (1-depthFrac)*30},${48+(1-depthFrac)*46},${70+(1-depthFrac)*55})`);
+    g.addColorStop(0.35, `rgb(${10+depthFrac*3},${22+depthFrac*4},${38+depthFrac*8})`);
+    g.addColorStop(1, `rgb(3,6,12)`);
+    ctx.fillStyle = g;
+    ctx.fillRect(0,0,W,H);
+
+    // 해수면 (물결 라인 + 반짝임)
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(0, surfaceY);
+    for(let x=0;x<=W;x+=8){ ctx.lineTo(x, surfaceY + Math.sin(x*0.05+ts*0.0015)*3); }
+    ctx.lineTo(W,0); ctx.lineTo(0,0); ctx.closePath();
+    const skyGrad = ctx.createLinearGradient(0,0,0,surfaceY);
+    skyGrad.addColorStop(0,'rgba(190,225,240,0.55)');
+    skyGrad.addColorStop(1,'rgba(120,180,205,0.12)');
+    ctx.fillStyle = skyGrad;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    for(let x=0;x<=W;x+=8){
+      const y = surfaceY + Math.sin(x*0.05+ts*0.0015)*3;
+      if(x===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+    ctx.restore();
+
+    // 해저면 (암반)
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(0,H);
+    for(let x=0;x<=W;x+=8){ ctx.lineTo(x, seabedTopAt(x)); }
+    ctx.lineTo(W,H); ctx.closePath();
+    const rockGrad = ctx.createLinearGradient(0,seabedY,0,H);
+    rockGrad.addColorStop(0,'#2a2118');
+    rockGrad.addColorStop(1,'#0d0a07');
+    ctx.fillStyle = rockGrad;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.restore();
+
+    // 100m 간격 깊이 눈금 (배경에 고정된 기준선)
+    ctx.font = '10px IBM Plex Mono';
+    for(let d=0; d<=MAX_DEPTH; d+=200){
+      const y = surfaceY + (d/MAX_DEPTH)*travelSpan;
+      ctx.strokeStyle = 'rgba(220,230,242,0.14)';
+      ctx.setLineDash([3,5]);
+      ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(220,230,242,0.45)';
+      ctx.fillText(d + 'm', 8, y-4);
+    }
+
+    // 배경 거품
+    ctx.fillStyle = 'rgba(180,220,235,0.3)';
+    bubbles.forEach(b=>{
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.r, 0, Math.PI*2);
+      ctx.fill();
+    });
+
+    // 도형이 실제로 위치할 y좌표 (수심에 정비례해 하강)
+    const swayX = Math.sin(ts*0.0006)*7;
+    const bobY = Math.sin(ts*0.0011)*3;
+    const currentCy = surfaceY + depthFrac*travelSpan + bobY;
+    const scaleFactor = 1 - 0.12*depthFrac;
+
+    // 하강 궤적선 (해수면 → 현재 위치)
+    ctx.save();
+    ctx.strokeStyle = 'rgba(63,208,201,0.35)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4,6]);
+    ctx.beginPath();
+    ctx.moveTo(cx, surfaceY);
+    ctx.lineTo(cx+swayX, currentCy);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+
+    const pts = shapePoints(state.shape, state.size);
+    const thickPx = Math.max(6, state.thick*pxPerM*0.9);
+    const flatness = state.shape==='circle' ? 0.08 : 1.0;
+    const dispBase = Math.min(26, overallRatio * 20) * flatness;
+
+    const arrowCount = 20;
+    const pulse = 0.5 + 0.5*Math.sin(ts*0.0025);
+
+    ctx.save();
+    ctx.translate(cx+swayX, currentCy);
+    ctx.scale(scaleFactor, scaleFactor);
+
+    for(let i=0;i<arrowCount;i++){
+      const a = i/arrowCount*Math.PI*2;
+      const rOuter = Math.max(state.size*pxPerM+46, 150);
+      const len = 12 + overallRatio*20*(0.6+0.4*pulse);
+      const x0 = Math.cos(a)*rOuter, y0 = Math.sin(a)*rOuter;
+      const x1 = Math.cos(a)*(rOuter-len), y1 = Math.sin(a)*(rOuter-len);
+      ctx.strokeStyle = `rgba(63,208,201,${0.12+0.18*pulse})`;
+      ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1,y1); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x1,y1);
+      ctx.lineTo(x1+Math.cos(a+2.5)*5, y1+Math.sin(a+2.5)*5);
+      ctx.lineTo(x1+Math.cos(a-2.5)*5, y1+Math.sin(a-2.5)*5);
+      ctx.closePath();
+      ctx.fillStyle = `rgba(63,208,201,${0.15+0.2*pulse})`;
+      ctx.fill();
+    }
+
+    // 살짝 그림자 (바로 아래) — 입체감과 하강감을 보강
+    ctx.beginPath();
+    ctx.ellipse(0, state.size*pxPerM*0.9, state.size*pxPerM*0.75, state.size*pxPerM*0.18, 0, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.fill();
+
+    for(let i=0;i<pts.length;i++){
+      const p0 = pts[i];
+      const p1 = pts[(i+1)%pts.length];
+      const disp0 = dispBase * p0.fn;
+      const disp1 = dispBase * p1.fn;
+      const x0 = p0.x - p0.nx*disp0, y0 = p0.y - p0.ny*disp0;
+      const x1 = p1.x - p1.nx*disp1, y1 = p1.y - p1.ny*disp1;
+      const localRatio = overallRatio * (0.4 + 0.6*p0.fn);
+      ctx.strokeStyle = colorForRatio(localRatio);
+      ctx.lineWidth = thickPx;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(x0,y0);
+      ctx.lineTo(x1,y1);
+      ctx.stroke();
+    }
+
+    ctx.beginPath();
+    pts.forEach((p,i)=>{
+      const disp = dispBase*p.fn;
+      const x = p.x - p.nx*disp*1.6, y = p.y - p.ny*disp*1.6;
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    });
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(4,8,16,0.9)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.restore();
+
+    const legX = 16, legY = H-14;
+    const grad = ctx.createLinearGradient(legX, 0, legX+160, 0);
+    grad.addColorStop(0,'#3fd0c9'); grad.addColorStop(0.55,'#f2c14e'); grad.addColorStop(1,'#e85c4a');
+    ctx.fillStyle = grad;
+    ctx.fillRect(legX, legY, 160, 6);
+    ctx.fillStyle = 'rgba(220,230,242,0.7)';
+    ctx.font = '10px IBM Plex Mono';
+    ctx.fillText('낮은 응력', legX, legY-4);
+    ctx.fillText('높은 응력', legX+120, legY-4);
+  }
+
+  function drawBars(depth){
+    barsEl.innerHTML = '';
+    const shapes = ['circle','square','triangle'];
+    const vals = shapes.map(s=>maxStress(s, depth, state.thick, state.size));
+    const maxScale = Math.max(ALLOW_MPA*1.3, ...vals);
+    shapes.forEach((s,idx)=>{
+      const v = vals[idx];
+      const ratio = v/ALLOW_MPA;
+      const pctHeight = Math.min(100, v/maxScale*100);
+      const limitPct = 100 - Math.min(100, ALLOW_MPA/maxScale*100);
+      const col = document.createElement('div');
+      col.className = 'barcol' + (s===state.shape ? ' current' : '');
+      col.innerHTML = `
+        <div class="barval">${v.toFixed(1)} MPa</div>
+        <div class="bartrack">
+          <div class="barlimit" style="top:${limitPct}%"></div>
+          <div class="barfill" style="height:${pctHeight}%; background:${colorForRatio(ratio)}"></div>
+        </div>
+        <div class="barlbl">${LABEL[s]}</div>
+      `;
+      barsEl.appendChild(col);
+    });
+  }
+
+  function loop(ts){
+    displayDepth += (targetDepth - displayDepth) * 0.07;
+    if(Math.abs(targetDepth-displayDepth) < 0.03) displayDepth = targetDepth;
+
+    updateBubbles(displayDepth);
+
+    const P = pressureMPa(displayDepth);
+    const sigma = maxStress(state.shape, displayDepth, state.thick, state.size);
+    const ratio = sigma / ALLOW_MPA;
+
+    depthTag.textContent = Math.round(displayDepth);
+    pressTag.textContent = P.toFixed(2);
+    stressVal.innerHTML = sigma.toFixed(1) + ' <small>MPa</small>';
+    const sf = ALLOW_MPA / sigma;
+    sfVal.textContent = sf.toFixed(2) + '×';
+    scfVal.textContent = SCF[state.shape].toFixed(1) + '×';
+
+    let sfColor, sfText;
+    if(sf >= 2){ sfColor='#3fd0c9'; sfText='안전'; }
+    else if(sf >= 1){ sfColor='#f2c14e'; sfText='주의'; }
+    else { sfColor='#e85c4a'; sfText='구조 파괴 위험'; }
+    sfFill.style.width = Math.min(100, sf/4*100) + '%';
+    sfFill.style.background = sfColor;
+    sfLabel.textContent = sfText;
+    sfLabel.style.color = sfColor;
+
+    drawGauge(displayDepth);
+    drawShape(displayDepth, sigma, ratio, ts);
+    drawBars(displayDepth);
+
+    requestAnimationFrame(loop);
+  }
+
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
