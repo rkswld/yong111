@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>해저터널 구조 시뮬레이션 | 수압과 안전율 탐구</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#071824;
+    --panel:#0F2C3B;
+    --panel-2:#123646;
+    --panel-3:#0B2530;
+    --line:#1F4A5C;
+    --text:#E8F1F2;
+    --text-dim:#9FB8C2;
+    --concrete:#C9C2B4;
+    --water:#2E7EA6;
+    --water-light:#4FA0C7;
+    --accent:#E0A458;
+    --safe:#4FBE84;
+    --warn:#E6B23D;
+    --danger:#E4584F;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:radial-gradient(ellipse at 50% -10%, #0E3244 0%, var(--bg) 55%);
+    color:var(--text);
+    font-family:'Noto Sans KR', sans-serif;
+    min-height:100vh;
+    padding:22px;
+  }
+  .num{font-family:'IBM Plex Mono', monospace;}
+  .app{max-width:1240px;margin:0 auto;}
+  header{
+    display:flex; flex-direction:column; gap:4px;
+    padding:6px 4px 20px;
+    border-bottom:1px solid var(--line);
+    margin-bottom:22px;
+  }
+  header .eyebrow{
+    font-size:12px; letter-spacing:.14em; color:var(--water-light); font-weight:700;
+    text-transform:uppercase;
+  }
+  header h1{
+    font-family:'Black Han Sans', sans-serif;
+    font-size:34px; margin:2px 0 4px; letter-spacing:.01em;
+    color:#fff;
+  }
+  header p{margin:0; color:var(--text-dim); font-size:14.5px; line-height:1.6; max-width:800px;}
+
+  .grid{
+    display:grid;
+    grid-template-columns: 300px 1fr 300px;
+    gap:18px;
+  }
+  @media (max-width: 980px){
+    .grid{grid-template-columns:1fr;}
+  }
+
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:18px;
+  }
+  .panel h2{
+    font-size:13px; text-transform:uppercase; letter-spacing:.1em;
+    color:var(--water-light); margin:0 0 14px; font-weight:700;
+    display:flex; align-items:center; gap:6px;
+  }
+
+  /* controls */
+  .field{margin-bottom:20px;}
+  .field label{
+    display:flex; justify-content:space-between; align-items:baseline;
+    font-size:13.5px; color:var(--text); margin-bottom:8px; font-weight:500;
+  }
+  .field label .val{color:var(--accent); font-weight:700;}
+  input[type=range]{
+    width:100%; -webkit-appearance:none; height:6px; border-radius:4px;
+    background:var(--panel-3); border:1px solid var(--line);
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:18px; height:18px; border-radius:50%;
+    background:var(--accent); border:2px solid #fff2; cursor:pointer;
+    box-shadow:0 0 0 4px rgba(224,164,88,.18);
+  }
+  input[type=range]::-moz-range-thumb{
+    width:18px; height:18px; border-radius:50%; background:var(--accent); border:none; cursor:pointer;
+  }
+  .segbtns{display:flex; gap:6px; flex-wrap:wrap;}
+  .segbtns button{
+    flex:1 1 auto; min-width:64px;
+    background:var(--panel-3); color:var(--text-dim); border:1px solid var(--line);
+    border-radius:8px; padding:8px 4px; font-size:11.5px; cursor:pointer;
+    font-family:inherit; transition:.15s; line-height:1.3;
+  }
+  .segbtns button.active{
+    background:var(--water); color:#fff; border-color:var(--water-light);
+  }
+  .segbtns button:hover{border-color:var(--water-light);}
+
+  .chips{display:flex; flex-direction:column; gap:6px; margin-top:6px;}
+  .chip{
+    text-align:left;
+    background:var(--panel-3); border:1px dashed var(--line); color:var(--text-dim);
+    border-radius:8px; padding:8px 10px; font-size:12px; cursor:pointer; font-family:inherit;
+    line-height:1.4;
+  }
+  .chip:hover{border-color:var(--accent); color:var(--text);}
+  .chip b{color:var(--accent);}
+
+  .reset{
+    width:100%; margin-top:4px; padding:9px; border-radius:8px;
+    background:transparent; border:1px solid var(--line); color:var(--text-dim);
+    cursor:pointer; font-family:inherit; font-size:12.5px;
+  }
+  .reset:hover{border-color:var(--danger); color:var(--danger);}
+
+  /* viz center */
+  .viz-stack{display:flex; flex-direction:column; gap:18px;}
+  .status-row{display:flex; align-items:center; gap:14px; margin-bottom:8px;}
+  .status-badge{
+    font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:14px;
+    padding:6px 14px; border-radius:20px; display:inline-flex; align-items:center; gap:6px;
+  }
+  .status-dot{width:9px;height:9px;border-radius:50%;}
+
+  svg text{font-family:'Noto Sans KR', sans-serif;}
+  .svg-wrap{display:flex; justify-content:center;}
+
+  .formula-box{
+    background:var(--panel-3); border:1px solid var(--line); border-radius:10px;
+    padding:12px 14px; font-size:12.5px; color:var(--text-dim); line-height:1.9;
+  }
+  .formula-box .num{color:var(--water-light);}
+
+  /* readout */
+  .kv-grid{
+    display:grid; grid-template-columns: 1fr 1fr; gap:8px;
+  }
+  .kv{
+    display:flex; flex-direction:column; gap:3px;
+    padding:9px 10px; border-radius:8px; background:var(--panel-3); border:1px solid var(--line);
+    font-size:11.5px;
+  }
+  .kv.wide{ grid-column: 1 / -1; flex-direction:row; justify-content:space-between; align-items:baseline; }
+  .kv .k{color:var(--text-dim);}
+  .kv .v{font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:14px;}
+
+  .sf-big{
+    text-align:center; padding:16px 0 10px;
+  }
+  .sf-big .sf-num{
+    font-family:'IBM Plex Mono',monospace; font-size:46px; font-weight:700; line-height:1;
+  }
+  .sf-big .sf-label{font-size:12px; color:var(--text-dim); margin-top:6px; letter-spacing:.05em;}
+
+  .legend{display:flex; gap:14px; font-size:11.5px; color:var(--text-dim); margin-top:10px; flex-wrap:wrap;}
+  .legend span{display:inline-flex; align-items:center; gap:5px;}
+  .legend i{width:8px;height:8px;border-radius:50%;display:inline-block;}
+
+  footer{
+    margin-top:26px; padding-top:16px; border-top:1px solid var(--line);
+    font-size:11.5px; color:var(--text-dim); line-height:1.7;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <span class="eyebrow">물리 × 해저터널 협력수업 · 시뮬레이션</span>
+    <h1>해저터널 구조 시뮬레이션</h1>
+    <p>수심·단면 모양·재료·벽 두께를 바꿔가며 터널 벽에 걸리는 수압과 응력, 안전율을 직접 계산해 보세요. 오른쪽 그래프에서 안전율이 1(붕괴 위험) 아래로 떨어지는 <b style="color:#E8F1F2">임계 수심</b>도 확인할 수 있습니다.</p>
+  </header>
+
+  <div class="grid">
+
+    <!-- LEFT: controls -->
+    <div class="panel">
+      <h2>① 조건 설정</h2>
+
+      <div class="field">
+        <label>수심 (Depth) <span class="val num" id="depthVal">100 m</span></label>
+        <input type="range" id="depth" min="10" max="250" step="5" value="100">
+      </div>
+
+      <div class="field">
+        <label>단면 모양 (Shape)</label>
+        <div class="segbtns" id="shapeButtons">
+          <button data-v="circular" class="active">원형</button>
+          <button data-v="arch">아치형</button>
+          <button data-v="box">사각형</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>재료 (Material)</label>
+        <div class="segbtns" id="materialButtons">
+          <button data-v="concrete" class="active">철근<br>콘크리트</button>
+          <button data-v="steelComposite">강판보강<br>콘크리트</button>
+          <button data-v="steel">강철<br>(강재)</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>시공법 (Method)</label>
+        <div class="segbtns" id="methodButtons">
+          <button data-v="immersed">침매<br>공법</button>
+          <button data-v="shieldTBM" class="active">실드<br>TBM</button>
+          <button data-v="natm">NATM<br>(산악)</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>벽 두께 (t) <span class="val num" id="thickVal">0.60 m</span></label>
+        <input type="range" id="thickness" min="0.2" max="2.0" step="0.05" value="0.6">
+      </div>
+
+      <div class="field">
+        <label>내부 반지름/폭 (R) <span class="val num" id="radiusVal">5.0 m</span></label>
+        <input type="range" id="radius" min="3" max="8" step="0.5" value="5">
+      </div>
+
+      <div class="field">
+        <label>지진계수 (k<sub>h</sub>) <span class="val num" id="khVal">0.12</span></label>
+        <input type="range" id="kh" min="0" max="0.30" step="0.02" value="0.12">
+        <div style="display:flex; justify-content:space-between; font-size:10.5px; color:var(--text-dim); margin-top:4px;">
+          <span>0 (무지진)</span><span>국내 일반 ~0.12</span><span>강진해역 ~0.25</span>
+        </div>
+      </div>
+
+      <div class="field" style="margin-bottom:8px;">
+        <label style="margin-bottom:8px;">실제 사례로 수심 맞춰보기</label>
+        <div class="chips">
+          <button class="chip" data-depth="65">🇬🇧🇫🇷 유로터널(도버해협) <b>약 65m</b></button>
+          <button class="chip" data-depth="140">🇯🇵 세이칸터널(일본) <b>약 140m</b></button>
+          <button class="chip" data-depth="200">🇰🇷🇯🇵 한일해저터널 구상 <b>약 200m</b></button>
+        </div>
+      </div>
+
+      <button class="reset" id="resetBtn">↺ 기본값으로 초기화</button>
+    </div>
+
+    <!-- CENTER: visualization -->
+    <div class="viz-stack">
+      <div class="panel">
+        <h2>② 터널 단면과 수압</h2>
+        <div class="status-row">
+          <span class="status-badge" id="statusBadge"><span class="status-dot"></span><span id="statusText">-</span></span>
+          <span style="color:var(--text-dim); font-size:12.5px;" id="shapeMaterialLabel"></span>
+        </div>
+        <div class="svg-wrap">
+          <svg id="crossSection" viewBox="0 0 420 380" width="100%" style="max-width:420px;"></svg>
+        </div>
+        <div class="formula-box">
+          정적 응력 <span class="num">σ_static = (P·R_m/t) × 모양계수 × 이음부계수</span><br>
+          지진 하중 포함 총응력 <span class="num">σ_total = σ_static × (1 + k_h × 지진증폭계수)</span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>③ 수심에 따른 안전율 변화 (현재 조건·지진하중 포함)</h2>
+        <div class="svg-wrap">
+          <svg id="chart" viewBox="0 0 640 260" width="100%" style="max-width:640px;"></svg>
+        </div>
+        <div class="legend">
+          <span><i style="background:var(--safe)"></i>안전율 ≥ 2 (안전)</span>
+          <span><i style="background:var(--warn)"></i>1 ≤ 안전율 &lt; 2 (주의)</span>
+          <span><i style="background:var(--danger)"></i>안전율 &lt; 1 (위험/붕괴 가능)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: readout -->
+    <div class="panel">
+      <h2>④ 계산 결과</h2>
+
+      <div class="sf-big">
+        <div class="sf-num num" id="sfNum">-</div>
+        <div class="sf-label">안전율 (Safety Factor)</div>
+      </div>
+
+      <div class="kv-grid">
+        <div class="kv wide"><span class="k">수압 P</span><span class="v num" id="outP">-</span></div>
+        <div class="kv"><span class="k">정적 응력 σ_static</span><span class="v num" id="outSigmaStatic">-</span></div>
+        <div class="kv"><span class="k">지진 추가응력</span><span class="v num" id="outSigmaSeismic">-</span></div>
+        <div class="kv wide"><span class="k">총 응력 σ_total</span><span class="v num" id="outSigma">-</span></div>
+        <div class="kv"><span class="k">재료 허용응력</span><span class="v num" id="outAllow">-</span></div>
+        <div class="kv"><span class="k">모양×이음×지진계수</span><span class="v num" id="outShapeFactor">-</span></div>
+        <div class="kv wide"><span class="k">임계 수심 (SF=1)</span><span class="v num" id="outCritical">-</span></div>
+      </div>
+
+      <div style="margin-top:16px; padding-top:14px; border-top:1px solid var(--line); font-size:12.5px; color:var(--text-dim); line-height:1.7;" id="materialDesc">
+      </div>
+      <div style="margin-top:10px; font-size:12.5px; color:var(--text-dim); line-height:1.7;" id="methodDesc">
+      </div>
+    </div>
+
+  </div>
+
+  <div class="panel" style="margin-top:18px;">
+    <h2>⑤ 시공법 비교</h2>
+    <div style="overflow-x:auto;">
+    <table style="width:100%; border-collapse:collapse; font-size:12.5px;" id="methodTable">
+      <thead>
+        <tr style="text-align:left; color:var(--water-light); border-bottom:1px solid var(--line);">
+          <th style="padding:8px 10px;">시공법</th>
+          <th style="padding:8px 10px;">이음부계수</th>
+          <th style="padding:8px 10px;">적합 지반/수심</th>
+          <th style="padding:8px 10px;">상대 시공비</th>
+          <th style="padding:8px 10px;">특징</th>
+        </tr>
+      </thead>
+      <tbody id="methodTableBody"></tbody>
+    </table>
+    </div>
+  </div>
+
+  <footer>
+    ※ 이 시뮬레이션은 얇은 벽 압력 용기(thin-wall) 근사, 단순화된 모양계수·이음부계수·지진계수(진도법)를 사용한 교육용 모형입니다. 실제 해저터널 설계는 지반 조건, 좌굴(buckling), 동적 지진응답 해석 등 훨씬 복잡한 구조해석을 거칩니다.
+  </footer>
+</div>
+
+<script>
+(function(){
+  const RHO = 1025, G = 9.8;
+  const materials = {
+    concrete:      {label:'철근콘크리트', allowable:14,  color:'#C9C2B4', desc:'철근콘크리트: 경제적이고 시공이 쉽지만 순수 압축강도만으로는 깊은 수심에서 취약해 두께나 보강이 많이 필요합니다.'},
+    steelComposite:{label:'강판보강콘크리트', allowable:60,  color:'#9FB3B8', desc:'강판보강콘크리트: 콘크리트 안팎을 강판으로 감싸 강성과 수밀성을 높인 방식으로, 세이칸터널 등 실제 해저터널에서 널리 사용됩니다.'},
+    steel:         {label:'강철(강재)', allowable:160, color:'#C7CDCF', desc:'강철(강재): 가장 높은 허용응력으로 깊은 수심에도 안전하지만, 재료비가 높고 부식 방지 관리가 중요합니다.'}
+  };
+  const shapeFactors = {circular:1.0, arch:1.3, box:1.8};
+  const shapeLabels  = {circular:'원형', arch:'아치형(마제형)', box:'사각형(박스형)'};
+  const seismicAmp   = {circular:1.0, arch:1.15, box:1.4}; // 지진 시 모양별 응력 증폭 경향
+
+  const methods = {
+    immersed:  {label:'침매공법', jointFactor:1.15, cost:3,
+      suitable:'연약지반 · 수심 대체로 얕음(~60m)',
+      desc:'침매공법: 육상에서 만든 터널 블록을 해저에 가라앉혀 이어 붙입니다. 사각형 단면과 잘 맞고 시공이 비교적 빠르지만, 블록 이음부가 많아 지진에 상대적으로 취약할 수 있습니다.'},
+    shieldTBM: {label:'실드 TBM', jointFactor:1.08, cost:4,
+      suitable:'다양한 지반 · 깊은 수심 가능',
+      desc:'실드 TBM: 원통형 커터로 굴착하며 세그먼트를 조립합니다. 원형 단면과 자연스럽게 맞아 깊은 수심에서도 비교적 안정적입니다.'},
+    natm:      {label:'NATM(산악공법)', jointFactor:1.0, cost:2,
+      suitable:'단단한 암반 지역(주로 육지·해안 인접부)',
+      desc:'NATM(산악공법): 발파·굴착 후 현장에서 콘크리트를 타설해 이음부가 거의 없습니다. 암반이 단단한 구간에 적합하며, 연약한 해저 지반에는 적용이 제한적입니다.'}
+  };
+
+  const state = { depth:100, shape:'circular', material:'concrete', method:'shieldTBM', thickness:0.6, radius:5, kh:0.12 };
+
+  const $ = (id)=>document.getElementById(id);
+  const depthEl = $('depth'), thickEl = $('thickness'), radiusEl = $('radius'), khEl = $('kh');
+
+  function compute(h, shape, material, method, t, R, kh){
+    const P_Pa = RHO * G * h;
+    const Rm = R + t/2;
+    const jointFactor = methods[method].jointFactor;
+    const sigmaStatic_Pa = (P_Pa * Rm / t) * shapeFactors[shape] * jointFactor;
+    const sigmaStatic_MPa = sigmaStatic_Pa / 1e6;
+    const sigmaSeismic_MPa = sigmaStatic_MPa * kh * seismicAmp[shape];
+    const sigmaTotal_MPa = sigmaStatic_MPa + sigmaSeismic_MPa;
+    const allowable = materials[material].allowable;
+    const SF = allowable / sigmaTotal_MPa;
+    const effFactor = shapeFactors[shape] * jointFactor * (1 + kh*seismicAmp[shape]);
+    // hCrit: SF=1 -> allowable = (RHO*G*hCrit*Rm/t*effFactor)/1e6
+    const hCrit = (allowable * 1e6 * t) / (RHO * G * Rm * effFactor);
+    return { P_Pa, sigmaStatic_MPa, sigmaSeismic_MPa, sigmaTotal_MPa, allowable, SF, hCrit, effFactor, jointFactor };
+  }
+
+  function statusOf(SF){
+    if (SF >= 2) return {label:'안전', color:'var(--safe)', hex:'#4FBE84'};
+    if (SF >= 1) return {label:'주의', color:'var(--warn)', hex:'#E6B23D'};
+    return {label:'위험', color:'var(--danger)', hex:'#E4584F'};
+  }
+
+  function fmt(n, d=1){ return Number(n).toLocaleString('ko-KR',{minimumFractionDigits:d, maximumFractionDigits:d}); }
+
+  function drawCrossSection(shape, material, t, R, status, kh){
+    const svg = $('crossSection');
+    const scale = 15;
+    const cx = 210, cy = 210;
+    const outerColor = status.hex;
+    const innerColor = '#12303D';
+    let outerShape='', innerShape='';
+    const rOuter = (R+t)*scale, rInner = R*scale;
+
+    function archPath(rad, straightRatio){
+      const straight = rad*straightRatio;
+      const left = cx-rad, right = cx+rad;
+      const bottomY = cy + (straight+rad)/2;
+      const springY = bottomY - straight;
+      return `M ${left} ${bottomY} L ${left} ${springY} A ${rad} ${rad} 0 0 1 ${right} ${springY} L ${right} ${bottomY} Z`;
+    }
+
+    if (shape === 'circular'){
+      outerShape = `<circle cx="${cx}" cy="${cy}" r="${rOuter}" fill="${outerColor}" stroke="#04141d" stroke-width="1.5"/>`;
+      innerShape = `<circle cx="${cx}" cy="${cy}" r="${rInner}" fill="${innerColor}" stroke="${outerColor}" stroke-width="1.5"/>`;
+    } else if (shape === 'box'){
+      outerShape = `<rect x="${cx-rOuter}" y="${cy-rOuter*0.8}" width="${rOuter*2}" height="${rOuter*1.6}" rx="10" fill="${outerColor}" stroke="#04141d" stroke-width="1.5"/>`;
+      innerShape = `<rect x="${cx-rInner}" y="${cy-rInner*0.8}" width="${rInner*2}" height="${rInner*1.6}" rx="6" fill="${innerColor}" stroke="${outerColor}" stroke-width="1.5"/>`;
+    } else { // arch
+      outerShape = `<path d="${archPath(rOuter,0.6)}" fill="${outerColor}" stroke="#04141d" stroke-width="1.5"/>`;
+      innerShape = `<path d="${archPath(rInner,0.6)}" fill="${innerColor}" stroke="${outerColor}" stroke-width="1.5"/>`;
+    }
+
+    // inward pressure arrows (hydrostatic, blue) around a bounding radius
+    const arrowR = rOuter + 34;
+    let arrows = '';
+    const dirs = 10;
+    for(let i=0;i<dirs;i++){
+      const ang = (Math.PI*2*i/dirs) - Math.PI/2;
+      const x1 = cx + Math.cos(ang)*arrowR;
+      const y1 = cy + Math.sin(ang)*arrowR*0.85;
+      const x2 = cx + Math.cos(ang)*(rOuter+6);
+      const y2 = cy + Math.sin(ang)*(rOuter*0.85+6);
+      arrows += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#4FA0C7" stroke-width="2" marker-end="url(#arrowhead)" opacity="0.85"/>`;
+    }
+
+    // seismic lateral arrows (amber, horizontal, only if kh>0)
+    let seismicArrows = '';
+    if (kh > 0){
+      const sx = rOuter + 46;
+      const amp = 8 + kh*40;
+      [-1,1].forEach(dir=>{
+        const x1 = cx + dir*(sx);
+        const x2 = cx + dir*(rOuter+10);
+        seismicArrows += `<line x1="${x1}" y1="${cy-14}" x2="${x2}" y2="${cy-14}" stroke="#E0A458" stroke-width="2.5" stroke-dasharray="4,3" marker-end="url(#arrowheadAmber)"/>`;
+        seismicArrows += `<line x1="${x1}" y1="${cy+14}" x2="${x2}" y2="${cy+14}" stroke="#E0A458" stroke-width="2.5" stroke-dasharray="4,3" marker-end="url(#arrowheadAmber)"/>`;
+      });
+    }
+
+    svg.innerHTML = `
+      <defs>
+        <marker id="arrowhead" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
+          <polygon points="0 0, 7 3.5, 0 7" fill="#4FA0C7"/>
+        </marker>
+        <marker id="arrowheadAmber" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
+          <polygon points="0 0, 7 3.5, 0 7" fill="#E0A458"/>
+        </marker>
+        <linearGradient id="waterGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#1C6E7A"/>
+          <stop offset="100%" stop-color="#0B2530"/>
+        </linearGradient>
+      </defs>
+      <rect x="0" y="0" width="420" height="380" fill="url(#waterGrad)" rx="14"/>
+      <text x="210" y="26" text-anchor="middle" fill="#9FB8C2" font-size="12">해수 (수압이 사방에서 작용)${kh>0 ? ' + 지진 하중' : ''}</text>
+      ${arrows}
+      ${seismicArrows}
+      ${outerShape}
+      ${innerShape}
+      ${kh>0 ? `<text x="210" y="${cy-rOuter-40}" text-anchor="middle" fill="#E0A458" font-size="10">↔ 지진 하중 (k_h=${fmt(kh,2)})</text>` : ''}
+      <text x="210" y="365" text-anchor="middle" fill="#9FB8C2" font-size="11">${shapeLabels[shape]} 단면 · 두께 t=${fmt(t,2)}m · 반지름/폭 R=${fmt(R,1)}m</text>
+    `;
+  }
+
+  function drawChart(shape, material, method, t, R, depth, kh, hCrit){
+    const svg = $('chart');
+    const W=640,H=260, padL=46,padR=16,padT=16,padB=34;
+    const plotW = W-padL-padR, plotH = H-padT-padB;
+    const hMin=5, hMax=250;
+    const sfCap = 5.5;
+    const jointFactor = methods[method].jointFactor;
+    const effFactor = shapeFactors[shape] * jointFactor * (1 + kh*seismicAmp[shape]);
+
+    function xOf(h){ return padL + (h-hMin)/(hMax-hMin)*plotW; }
+    function yOf(sf){ const clamped = Math.min(sf, sfCap); return padT + (1 - clamped/sfCap)*plotH; }
+
+    let pts = [];
+    for(let h=hMin; h<=hMax; h+=5){
+      const P_Pa = RHO*G*h;
+      const Rm = R+t/2;
+      const sigma_MPa = (P_Pa*Rm/t*effFactor)/1e6;
+      const sf = materials[material].allowable / sigma_MPa;
+      pts.push([xOf(h), yOf(sf)]);
+    }
+    const polyline = pts.map(p=>p.join(',')).join(' ');
+
+    const curDepthX = xOf(depth);
+    const critX = (hCrit>=hMin && hCrit<=hMax) ? xOf(hCrit) : null;
+
+    let gridlines = '';
+    [1,2,3,4,5].forEach(v=>{
+      const y = yOf(v);
+      gridlines += `<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="#1F4A5C" stroke-width="1" stroke-dasharray="2,4"/>`;
+      gridlines += `<text x="${padL-8}" y="${y+4}" text-anchor="end" fill="#9FB8C2" font-size="10">${v}</text>`;
+    });
+    let xticks='';
+    [5,50,100,150,200,250].forEach(h=>{
+      const x = xOf(h);
+      xticks += `<text x="${x}" y="${H-padB+18}" text-anchor="middle" fill="#9FB8C2" font-size="10">${h}m</text>`;
+    });
+
+    const sf1y = yOf(1), sf2y = yOf(2);
+    const curSF = materials[material].allowable / ((RHO*G*depth*(R+t/2)/t*effFactor)/1e6);
+
+    svg.innerHTML = `
+      <rect x="0" y="0" width="${W}" height="${H}" fill="#0B2530" rx="10"/>
+      ${gridlines}
+      <line x1="${padL}" y1="${sf1y}" x2="${W-padR}" y2="${sf1y}" stroke="#E4584F" stroke-width="1.5" stroke-dasharray="5,3"/>
+      <line x1="${padL}" y1="${sf2y}" x2="${W-padR}" y2="${sf2y}" stroke="#4FBE84" stroke-width="1.5" stroke-dasharray="5,3"/>
+      <polyline points="${polyline}" fill="none" stroke="#E0A458" stroke-width="2.5"/>
+      ${critX ? `<line x1="${critX}" y1="${padT}" x2="${critX}" y2="${H-padB}" stroke="#E4584F" stroke-width="1.5" stroke-dasharray="3,3"/>
+                 <text x="${critX}" y="${padT-2}" text-anchor="middle" fill="#E4584F" font-size="10">임계 ${fmt(hCrit,0)}m</text>` : ''}
+      <line x1="${curDepthX}" y1="${padT}" x2="${curDepthX}" y2="${H-padB}" stroke="#4FA0C7" stroke-width="2"/>
+      <circle cx="${curDepthX}" cy="${yOf(curSF)}" r="5" fill="#4FA0C7" stroke="#fff" stroke-width="1.5"/>
+      ${xticks}
+      <text x="${padL}" y="14" fill="#9FB8C2" font-size="10">안전율(SF)</text>
+      <text x="${W-padR}" y="${H-8}" text-anchor="end" fill="#9FB8C2" font-size="10">수심(m)</text>
+    `;
+  }
+
+  function renderMethodTable(selectedMethod){
+    const tbody = $('methodTableBody');
+    tbody.innerHTML = Object.keys(methods).map(key=>{
+      const m = methods[key];
+      const isSel = key===selectedMethod;
+      const costBar = '●'.repeat(m.cost) + '○'.repeat(5-m.cost);
+      return `<tr style="background:${isSel?'#123646':'transparent'}; border-bottom:1px solid var(--line);">
+        <td style="padding:8px 10px; font-weight:${isSel?700:400}; color:${isSel?'#E0A458':'inherit'};">${isSel?'▶ ':''}${m.label}</td>
+        <td style="padding:8px 10px;" class="num">× ${fmt(m.jointFactor,2)}</td>
+        <td style="padding:8px 10px;">${m.suitable}</td>
+        <td style="padding:8px 10px; letter-spacing:1px; color:var(--accent);">${costBar}</td>
+        <td style="padding:8px 10px; color:var(--text-dim);">${m.desc}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  function render(){
+    const { depth, shape, material, method, thickness, radius, kh } = state;
+    const r = compute(depth, shape, material, method, thickness, radius, kh);
+    const status = statusOf(r.SF);
+
+    $('depthVal').textContent = depth + ' m';
+    $('thickVal').textContent = fmt(thickness,2) + ' m';
+    $('radiusVal').textContent = fmt(radius,1) + ' m';
+    $('khVal').textContent = fmt(kh,2);
+
+    $('sfNum').textContent = fmt(r.SF,2);
+    $('sfNum').style.color = status.hex;
+    $('statusBadge').style.background = status.hex+'22';
+    $('statusBadge').style.color = status.hex;
+    $('statusBadge').querySelector('.status-dot').style.background = status.hex;
+    $('statusText').textContent = status.label;
+    $('shapeMaterialLabel').textContent = `${shapeLabels[shape]} · ${materials[material].label} · ${methods[method].label}`;
+
+    $('outP').textContent = fmt(r.P_Pa/1000,1) + ' kPa (' + fmt(r.P_Pa/1e6,2) + ' MPa)';
+    $('outSigmaStatic').textContent = fmt(r.sigmaStatic_MPa,2) + ' MPa';
+    $('outSigmaSeismic').textContent = '+ ' + fmt(r.sigmaSeismic_MPa,2) + ' MPa';
+    $('outSigma').textContent = fmt(r.sigmaTotal_MPa,2) + ' MPa';
+    $('outAllow').textContent = fmt(r.allowable,1) + ' MPa';
+    $('outShapeFactor').textContent = '× ' + fmt(r.effFactor,2) + ' (지진 포함)';
+    $('outCritical').textContent = r.hCrit>250 ? '250m 이상 (안전)' : fmt(r.hCrit,0) + ' m';
+
+    $('materialDesc').textContent = materials[material].desc;
+    $('methodDesc').textContent = methods[method].desc;
+
+    drawCrossSection(shape, material, thickness, radius, status, kh);
+    drawChart(shape, material, method, thickness, radius, depth, kh, r.hCrit);
+    renderMethodTable(method);
+  }
+
+  depthEl.addEventListener('input', e=>{ state.depth = +e.target.value; render(); });
+  thickEl.addEventListener('input', e=>{ state.thickness = +e.target.value; render(); });
+  radiusEl.addEventListener('input', e=>{ state.radius = +e.target.value; render(); });
+  khEl.addEventListener('input', e=>{ state.kh = +e.target.value; render(); });
+
+  document.getElementById('shapeButtons').addEventListener('click', e=>{
+    const btn = e.target.closest('button'); if(!btn) return;
+    state.shape = btn.dataset.v;
+    [...btn.parentElement.children].forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    render();
+  });
+  document.getElementById('materialButtons').addEventListener('click', e=>{
+    const btn = e.target.closest('button'); if(!btn) return;
+    state.material = btn.dataset.v;
+    [...btn.parentElement.children].forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    render();
+  });
+  document.getElementById('methodButtons').addEventListener('click', e=>{
+    const btn = e.target.closest('button'); if(!btn) return;
+    state.method = btn.dataset.v;
+    [...btn.parentElement.children].forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    render();
+  });
+  document.querySelectorAll('.chip').forEach(chip=>{
+    chip.addEventListener('click', ()=>{
+      state.depth = +chip.dataset.depth;
+      depthEl.value = state.depth;
+      render();
+    });
+  });
+  $('resetBtn').addEventListener('click', ()=>{
+    state.depth=100; state.shape='circular'; state.material='concrete'; state.method='shieldTBM'; state.thickness=0.6; state.radius=5; state.kh=0.12;
+    depthEl.value=100; thickEl.value=0.6; radiusEl.value=5; khEl.value=0.12;
+    document.querySelectorAll('#shapeButtons button').forEach(b=>b.classList.toggle('active', b.dataset.v==='circular'));
+    document.querySelectorAll('#materialButtons button').forEach(b=>b.classList.toggle('active', b.dataset.v==='concrete'));
+    document.querySelectorAll('#methodButtons button').forEach(b=>b.classList.toggle('active', b.dataset.v==='shieldTBM'));
+    render();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
