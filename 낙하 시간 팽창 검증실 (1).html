@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>낙하 시간 팽창 검증실</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eef1f4;--panel:#fff;--ink:#14213a;--mut:#5b667a;--line:#d3d9e2;--lab:#1f6fd1;--ball:#e0731a;--ok:#16875a;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1522;--panel:#172236;--ink:#e8edf6;--mut:#9aa7bd;--line:#2a3a56;--lab:#5aa2ff;--ball:#ffa24d;--ok:#4cd39a}}
+:root[data-theme="dark"]{--bg:#0e1522;--panel:#172236;--ink:#e8edf6;--mut:#9aa7bd;--line:#2a3a56;--lab:#5aa2ff;--ball:#ffa24d;--ok:#4cd39a}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 'IBM Plex Sans KR',system-ui,sans-serif}
+main{max-width:1000px;margin:0 auto;padding:16px}
+h1{font-size:22px;margin:4px 0}h2{font-size:16px;margin:0 0 8px}
+p.sub{color:var(--mut);margin:0 0 12px}
+nav{display:flex;gap:6px;margin:12px 0}
+nav button{flex:1;padding:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:inherit;font-weight:600;cursor:pointer;border-radius:6px}
+nav button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+section{display:none}section.on{display:block}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px;margin-bottom:12px}
+#stage{position:relative;height:min(62vh,460px);border-radius:8px;overflow:hidden;background:#0d1626;touch-action:none}
+#stage canvas{display:block;width:100%;height:100%}
+.hud{position:absolute;left:8px;top:8px;display:flex;flex-direction:column;gap:6px;pointer-events:none}
+.clk{padding:6px 10px;border-radius:6px;background:rgba(10,18,32,.82);font:500 15px 'IBM Plex Mono',monospace;color:#fff;border-left:4px solid}
+.clk small{display:block;font:11px 'IBM Plex Sans KR',sans-serif;color:#aab6cc}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0}
+.row label{font-size:13px;color:var(--mut)}
+button.b,select,input{font:inherit;padding:7px 12px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink)}
+button.b{cursor:pointer;font-weight:600}button.p{background:var(--lab);color:#fff;border-color:var(--lab)}
+button.b:focus-visible,select:focus-visible,input:focus-visible,nav button:focus-visible{outline:3px solid var(--ball);outline-offset:1px}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right}th:first-child,td:first-child{text-align:left}
+.mono{font-family:'IBM Plex Mono',monospace}
+.chk li{margin:4px 0;list-style:none}.chk{padding:0;margin:0}.y{color:var(--ok);font-weight:600}.n{color:var(--ball);font-weight:600}
+.note{font-size:13px;color:var(--mut)}
+#vwrap{position:relative;background:#000;border-radius:8px;overflow:hidden}
+#vid{width:100%;max-height:50vh;display:block;background:#000}#cv{width:100%;max-height:60vh;display:none;cursor:crosshair;background:#000}
+.out{overflow-x:auto}
+</style></head><body><main>
+<h1>낙하 시간 팽창 검증실</h1>
+<p class="sub">공을 떨어뜨리면 공의 시계와 실험실의 시계는 얼마나 다르게 갈까? 이론 계산, 3D 시뮬레이션, 직접 촬영 분석으로 보고서를 확인합니다.</p>
+<nav><button class="on" data-t="s1">3D 시뮬레이션</button><button data-t="s2">촬영·분석</button></nav>
+
+<section id="s1" class="on">
+<div id="stage"><div class="hud">
+<div class="clk" style="border-color:var(--lab)"><small>실험실 시계 t (정지한 관측자)</small><span id="tl">0.000000 s</span></div>
+<div class="clk" style="border-color:var(--ball)"><small>공의 시계 τ (고유시간)</small><span id="tb">0.000000 s</span></div>
+<div class="clk" style="border-color:#fff"><small>차이 Δ = t − τ · 속도 v · β=v/c</small><span id="dl">0</span></div></div></div>
+<div class="box"><div class="row">
+<label>낙하 높이 <select id="h"><option>0.50</option><option selected>1.00</option><option>1.50</option></select> m</label>
+<label>빛의 속도 c <select id="c"><option value="299792458">실제 (3×10⁸ m/s)</option><option value="20">교육용 20 m/s</option><option value="8">교육용 8 m/s</option></select></label>
+<label>재생 속도 <select id="sp"><option value="1">1×</option><option value="0.25" selected>0.25×</option></select></label>
+<label>시점 <select id="vw"><option value="lab">실험실 관측자</option><option value="ball">공 관측자(공을 따라감)</option></select></label>
+<button class="b p" id="play">▶ 떨어뜨리기</button></div>
+<p class="note" id="cn">화면을 드래그하면 회전, 휠/핀치로 확대합니다. 실제 c에서는 차이가 약 10⁻¹⁷ 초라 눈에 보이지 않으므로, 교육용 c(가상으로 줄인 빛의 속도)를 고르면 같은 공식이 만드는 차이를 눈으로 볼 수 있습니다. 교육용 값은 이해를 돕기 위한 설정이며 실제 값이 아닙니다.</p></div>
+<div class="box"><h2>보고서 검증표 <span class="note">(실제 c, g = 9.8 m/s²)</span></h2><div class="out"><table id="tbl"></table></div>
+<ul class="chk" id="chk"></ul>
+<p class="note">공이 가속하므로 공의 고유시간이 실험실 시간보다 짧습니다. 속도가 같은 순간에는 서로 상대방 시계가 느리게 보이지만(상대성), 시계를 직접 비교하는 두 지점의 경로가 다르기 때문에 최종 누적 시간은 가속한 쪽이 적게 흐릅니다.</p></div>
+</section>
+
+<section id="s2">
+<div class="box"><h2>1. 촬영 또는 영상 불러오기</h2>
+<div class="row"><button class="b p" id="cam">카메라 켜기</button><button class="b" id="rec" disabled>● 녹화 시작</button>
+<label>또는 영상 파일 <input type="file" id="file" accept="video/*"></label></div>
+<div id="vwrap"><video id="vid" playsinline muted controls></video><canvas id="cv"></canvas></div>
+<p class="note" id="msg">공이 낙하하는 모습을 옆에서 촬영하세요. 눈금자(미터자)를 함께 찍으면 길이를 보정할 수 있습니다. 고속 촬영(120/240fps) 영상일수록 정확합니다.</p></div>
+<div class="box"><h2>2. 보정하고 공 위치 찍기</h2>
+<div class="row"><label>영상 fps <input id="fps" type="number" value="30" min="1" max="1000" style="width:80px"></label>
+<label>기준 길이(m) <input id="ref" type="number" value="0.5" step="0.01" style="width:80px"></label>
+<button class="b" id="bcal">① 기준 두 점 찍기</button><button class="b" id="bmark">② 공 위치 찍기</button></div>
+<div class="row"><button class="b" id="pv">◀ 이전 프레임</button><button class="b" id="nx">다음 프레임 ▶</button><input type="range" id="sl" min="0" max="0" value="0" style="flex:1;min-width:140px" aria-label="프레임 이동"><span class="mono" id="fi">프레임 0</span><button class="b" id="und">되돌리기</button><button class="b" id="clr">초기화</button><button class="b p" id="go">분석하기</button></div>
+<p class="note">②에서는 공의 중심을 클릭하면 자동으로 다음 프레임으로 넘어갑니다. 낙하 시작 직전 프레임부터 4개 이상 찍어 주세요.</p></div>
+<div class="box"><h2>3. 결과</h2><canvas id="ch" width="600" height="220" style="width:100%;max-width:600px"></canvas><div class="out"><table id="res"></table></div><p class="note" id="rn"></p></div>
+</section>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const G=9.8, C0=299792458, $=id=>document.getElementById(id);
+const f=x=>x/(1+Math.sqrt(1-x)); // 1-sqrt(1-x), 안정적 계산
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button,section').forEach(e=>e.classList.remove('on'));b.classList.add('on');$(b.dataset.t).classList.add('on');onR()});
+const sci=x=>x===0?'0':x.toExponential(2);
+
+/* ---------- 검증표 ---------- */
+(function(){const H=[.5,1,1.5],R=H.map(h=>{const t=Math.sqrt(2*h/G),v=G*t,d=G*G*t**3/(6*C0*C0);return{h,t,v,d,r:d/(1/240)}});
+$('tbl').innerHTML='<tr><th>높이(m)</th><th>낙하시간 t(s)</th><th>나중속도 v(m/s)</th><th>Δ=t−τ (s)</th><th>Δ ÷ 240fps 프레임</th></tr>'+R.map(r=>`<tr><td>${r.h.toFixed(2)}</td><td class=mono>${r.t.toFixed(4)}</td><td class=mono>${r.v.toFixed(3)}</td><td class=mono>${sci(r.d)}</td><td class=mono>${sci(r.r)}</td></tr>`).join('');
+const ok=[['낙하 중 속도가 증가한다 (v=gt)',true],['공의 고유시간이 실험실 시간보다 짧다 (Δ>0)',R.every(r=>r.d>0)],['높이가 높을수록 누적 시간 차이가 커진다 (Δ∝h^1.5)',R[0].d<R[1].d&&R[1].d<R[2].d],['스마트폰 시간 정밀도(약 4 ms)보다 10¹⁴배 이상 작아 직접 관측 불가',R.every(r=>r.r<1e-12)]];
+$('chk').innerHTML=ok.map(o=>`<li><span class="${o[1]?'y':'n'}">${o[1]?'일치':'불일치'}</span> ${o[0]}</li>`).join('')})();
+
+/* ---------- 3D ---------- */
+const st=$('stage'),ren=new THREE.WebGLRenderer({antialias:true});st.appendChild(ren.domElement);
+const sc=new THREE.Scene();sc.background=new THREE.Color(0x0d1626);
+const cam=new THREE.PerspectiveCamera(50,1,.05,50);
+sc.add(new THREE.AmbientLight(0xffffff,.7));const dl=new THREE.DirectionalLight(0xffffff,.8);dl.position.set(2,4,3);sc.add(dl);
+sc.add(new THREE.GridHelper(4,20,0x3a557f,0x24344f));
+function lab(txt,col){const cv=document.createElement('canvas');cv.width=256;cv.height=64;const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv),transparent:true,depthTest:false}));sp.scale.set(.5,.125,1);sp.userData={cv,col};setLab(sp,txt);return sp}
+function setLab(sp,txt){const c=sp.userData.cv.getContext('2d');c.clearRect(0,0,256,64);c.fillStyle='rgba(10,18,32,.85)';c.fillRect(0,0,256,64);c.fillStyle=sp.userData.col;c.font='bold 26px monospace';c.textAlign='center';c.fillText(txt,128,40);sp.material.map.needsUpdate=true}
+const pole=new THREE.Mesh(new THREE.CylinderGeometry(.01,.01,1.8),new THREE.MeshStandardMaterial({color:0x8fa3c4}));pole.position.set(-.3,.9,0);sc.add(pole);
+[.5,1,1.5].forEach(h=>{const m=new THREE.Mesh(new THREE.BoxGeometry(.14,.01,.01),new THREE.MeshBasicMaterial({color:0xffd84d}));m.position.set(-.23,h,0);sc.add(m);const l=lab(h.toFixed(2)+' m','#ffd84d');l.scale.set(.3,.075,1);l.position.set(-.55,h,0);sc.add(l)});
+const ball=new THREE.Mesh(new THREE.SphereGeometry(.05,24,16),new THREE.MeshStandardMaterial({color:0xe0731a}));sc.add(ball);
+const bl=lab('τ','#ffa24d');sc.add(bl);const ll=lab('t','#5aa2ff');ll.position.set(.6,1.7,0);sc.add(ll);
+const post=new THREE.Mesh(new THREE.BoxGeometry(.04,1.7,.04),new THREE.MeshStandardMaterial({color:0x5aa2ff}));post.position.set(.6,.85,0);sc.add(post);
+let az=.6,el=.25,dist=3,t=0,tau=0,run=false,last=0;
+function par(){return{h:+$('h').value,c:+$('c').value,sp:+$('sp').value}}
+function reset(){t=0;tau=0;run=false;$('play').textContent='▶ 떨어뜨리기';draw(0)}
+function draw(v){const{h,c}=par(),y=Math.max(.05,h-.5*G*t*t);ball.position.set(0,y,0);bl.position.set(0,y+.18,0);
+const tg=new THREE.Vector3(0,$('vw').value==='ball'?y:.8,0);
+const d=$('vw').value==='ball'?1.4:dist;cam.position.set(tg.x+d*Math.sin(az)*Math.cos(el),tg.y+d*Math.sin(el),tg.z+d*Math.cos(az)*Math.cos(el));cam.lookAt(tg);
+const lag=t-tau,ex=c<C0;setLab(bl,'τ='+tau.toFixed(ex?3:6));setLab(ll,'t='+t.toFixed(ex?3:6));
+$('tl').textContent=t.toFixed(6)+' s';$('tb').textContent=tau.toFixed(6)+' s';
+$('dl').textContent=`Δ=${sci(lag)} s · v=${v.toFixed(2)} m/s · β=${sci(v/c)}`;ren.render(sc,cam)}
+function tick(ts){if(run){const dt=Math.min((ts-last)/1000,.05)*par().sp;last=ts;const{h,c}=par(),T=Math.sqrt(2*h/G);
+const n=20,s=Math.min(dt,T-t)/n;for(let i=0;i<n;i++){const v=G*(t+s/2);tau+=s-s*f(Math.min(.999999,(v/c)**2));t+=s}
+if(t>=T-1e-9){t=T;run=false;$('play').textContent='↺ 다시'}}
+const{h}=par(),T=Math.sqrt(2*h/G);draw(G*Math.min(t,T));requestAnimationFrame(tick)}
+$('play').onclick=()=>{if(!run){if(t>0)reset();run=true;last=performance.now();$('play').textContent='❚❚ 정지'}else{run=false;$('play').textContent='▶ 계속'}};
+['h','c','vw'].forEach(i=>$(i).onchange=reset);
+function onR(){const w=st.clientWidth,h=st.clientHeight;if(w){ren.setSize(w,h,false);ren.domElement.style.width='100%';ren.domElement.style.height='100%';cam.aspect=w/h;cam.updateProjectionMatrix()}}
+addEventListener('resize',onR);
+let dr=null;st.onpointerdown=e=>{dr=[e.clientX,e.clientY];st.setPointerCapture(e.pointerId)};st.onpointerup=()=>dr=null;
+st.onpointermove=e=>{if(!dr)return;az-=(e.clientX-dr[0])*.008;el=Math.max(-.2,Math.min(1.3,el+(e.clientY-dr[1])*.008));dr=[e.clientX,e.clientY]};
+st.onwheel=e=>{e.preventDefault();dist=Math.max(1.2,Math.min(6,dist+e.deltaY*.003))};
+onR();reset();requestAnimationFrame(tick);
+
+/* ---------- 촬영·분석 ---------- */
+const vid=$('vid'),cv=$('cv'),cx=cv.getContext('2d');let stream,mr,chunks=[],mode='mark',cal=[],scale=null,pts={},idx=0;
+const fps=()=>+$('fps').value||30,msg=m=>$('msg').textContent=m;
+function show(a){vid.style.display=a?'none':'block';cv.style.display=a?'block':'none'}
+$('cam').onclick=async()=>{try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});vid.srcObject=stream;vid.controls=false;show(false);await vid.play();$('rec').disabled=false;msg('카메라가 켜졌습니다. 녹화를 시작해 공을 떨어뜨리세요.')}catch(e){msg('카메라를 사용할 수 없습니다(권한 거부 또는 이 환경에서 미지원). 스마트폰으로 촬영한 영상 파일을 불러와 주세요.')}};
+$('rec').onclick=()=>{if(mr&&mr.state==='recording'){mr.stop();return}chunks=[];mr=new MediaRecorder(stream);mr.ondataavailable=e=>chunks.push(e.data);mr.onstop=()=>{stream.getTracks().forEach(t=>t.stop());load(URL.createObjectURL(new Blob(chunks,{type:'video/webm'})));$('rec').textContent='● 녹화 시작';$('rec').disabled=true};mr.start();$('rec').textContent='■ 녹화 끝내기'};
+$('file').onchange=e=>{if(e.target.files[0])load(URL.createObjectURL(e.target.files[0]))};
+function load(u){vid.srcObject=null;vid.removeAttribute('src');pts={};cal=[];scale=null;idx=0;ready=false;vid.controls=false;vid.onseeked=null;
+vid.onerror=()=>msg('이 영상 형식을 브라우저가 재생하지 못합니다. MP4(H.264) 또는 WebM으로 변환해 다시 불러와 주세요.');
+vid.onloadedmetadata=()=>{cv.width=vid.videoWidth;cv.height=vid.videoHeight;if(vid.duration===Infinity){vid.onseeked=()=>{vid.onseeked=render;ready=true;seek(0)};vid.currentTime=1e7}};
+vid.onloadeddata=()=>{if(vid.duration!==Infinity){vid.onseeked=render;ready=true;seek(0);msg('영상을 불러왔습니다. 슬라이더로 낙하 직전 프레임을 찾고, ①로 기준 길이를 보정한 뒤 ②로 공 위치를 찍으세요.')}};
+vid.src=u;vid.load();show(true);msg('영상을 읽는 중입니다...')}
+function seek(i){if(!ready)return;const n=Math.max(1,Math.floor(vid.duration*fps()));idx=Math.max(0,Math.min(i,n-1));const t=(idx+.5)/fps();$('fi').textContent='프레임 '+idx+' / '+(n-1);$('sl').max=n-1;$('sl').value=idx;if(Math.abs(vid.currentTime-t)<1e-4)render();else vid.currentTime=t}
+let ready=false;
+function render(){if(!vid.videoWidth)return;cx.drawImage(vid,0,0,cv.width,cv.height);cx.lineWidth=3;
+cal.forEach(p=>{cx.strokeStyle='#ffd84d';cx.beginPath();cx.arc(p.x,p.y,7,0,7);cx.stroke()});
+Object.entries(pts).forEach(([k,p])=>{cx.strokeStyle=+k===idx?'#fff':'#ff8a2b';cx.beginPath();cx.arc(p.x,p.y,9,0,7);cx.stroke()})}
+$('bcal').onclick=()=>{mode='cal';cal=[];render();msg('영상에서 눈금자의 두 점을 차례로 클릭하세요(두 점 사이 실제 길이를 입력).')};
+$('bmark').onclick=()=>{mode='mark';msg('공의 중심을 클릭하세요. 다음 프레임으로 자동 이동합니다.')};
+$('pv').onclick=()=>seek(idx-1);$('nx').onclick=()=>seek(idx+1);$('fps').onchange=()=>seek(idx);
+$('sl').oninput=()=>seek(+$('sl').value);
+$('und').onclick=()=>{const k=Object.keys(pts).map(Number).sort((a,b)=>a-b);if(k.length){const l=k[k.length-1];delete pts[l];seek(l);msg('마지막 점을 지웠습니다. 남은 점 '+(k.length-1)+'개')}};
+addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;if(e.key==='ArrowRight')seek(idx+1);if(e.key==='ArrowLeft')seek(idx-1)});
+$('clr').onclick=()=>{pts={};cal=[];scale=null;render()};
+cv.onclick=e=>{if(!ready){msg('먼저 영상을 불러오세요(카메라 녹화 또는 영상 파일).');return}const r=cv.getBoundingClientRect(),p={x:(e.clientX-r.left)*cv.width/r.width,y:(e.clientY-r.top)*cv.height/r.height};
+if(mode==='cal'){cal.push(p);if(cal.length===2){scale=Math.hypot(cal[0].x-cal[1].x,cal[0].y-cal[1].y)/(+$('ref').value);mode='mark';msg('보정 완료: '+scale.toFixed(1)+' px/m. 이제 공 위치를 찍으세요.')}render()}
+else{pts[idx]=p;msg('찍은 점 '+Object.keys(pts).length+'개 (4개 이상이면 분석 가능)');seek(idx+1)}};
+function fit(T,D){const n=T.length,S=k=>T.reduce((a,t)=>a+t**k,0),M=[[n,S(1),S(2)],[S(1),S(2),S(3)],[S(2),S(3),S(4)]],B=[0,1,2].map(k=>D.reduce((a,d,i)=>a+d*T[i]**k,0));
+for(let i=0;i<3;i++){let m=i;for(let r=i+1;r<3;r++)if(Math.abs(M[r][i])>Math.abs(M[m][i]))m=r;[M[i],M[m]]=[M[m],M[i]];[B[i],B[m]]=[B[m],B[i]];for(let r=i+1;r<3;r++){const q=M[r][i]/M[i][i];for(let c=i;c<3;c++)M[r][c]-=q*M[i][c];B[r]-=q*B[i]}}
+const x=[0,0,0];for(let i=2;i>=0;i--){x[i]=(B[i]-(i<2?M[i].slice(i+1).reduce((a,m,j)=>a+m*x[i+1+j],0):0))/M[i][i]}return x}
+$('go').onclick=()=>{const ks=Object.keys(pts).map(Number).sort((a,b)=>a-b);if(!scale||ks.length<4){$('rn').textContent='기준 길이 보정과 공 위치 4개 이상이 필요합니다.';return}
+const i0=ks[0],T=ks.map(k=>(k-i0)/fps()),y0=pts[i0].y,D=ks.map(k=>(pts[k].y-y0)/scale),[a,b,c2]=fit(T,D),g=2*c2,tn=T[T.length-1];
+let tauLag=0;const N=400;for(let i=0;i<N;i++){const t=(i+.5)*tn/N,v=b+g*t;tauLag+=f(Math.min(.99,(v/C0)**2))*tn/N}
+const H=D[D.length-1],tt=Math.sqrt(2*H/G),th=G*G*tt**3/(6*C0*C0),vend=b+g*tn,frame=1/fps();
+$('res').innerHTML=`<tr><th>항목</th><th>측정(영상)</th><th>이론(g=9.8)</th></tr>
+<tr><td>중력가속도 g (m/s²)</td><td class=mono>${g.toFixed(2)}</td><td class=mono>9.80</td></tr>
+<tr><td>낙하 거리 (m)</td><td class=mono>${H.toFixed(3)}</td><td class=mono>-</td></tr>
+<tr><td>마지막 속도 v (m/s)</td><td class=mono>${vend.toFixed(2)}</td><td class=mono>${(G*tt).toFixed(2)}</td></tr>
+<tr><td>시간 차이 Δ=t−τ (s)</td><td class=mono>${sci(tauLag)}</td><td class=mono>${sci(th)}</td></tr>
+<tr><td>Δ ÷ 이 영상의 프레임 간격(${(frame*1000).toFixed(1)} ms)</td><td class=mono>${sci(tauLag/frame)}</td><td class=mono>${sci(th/frame)}</td></tr>`;
+$('rn').textContent=`g의 오차는 약 ${(Math.abs(g-G)/G*100).toFixed(1)}%입니다. 계산된 Δ는 프레임 간격의 약 ${sci(tauLag/frame)}배라서 이 장비로는 직접 관측할 수 없습니다. 보고서가 말한 대로 측정 속도로 이론값을 계산하고 장비 정밀도와 비교하는 단계까지 확인됩니다.`;
+const k=$('ch'),q=k.getContext('2d'),W=k.width,Hh=k.height,mx=Math.max(...D,a+b*tn+c2*tn*tn)*1.1,X=t=>40+t/tn*(W-60),Y=d=>Hh-25-d/mx*(Hh-40);
+q.clearRect(0,0,W,Hh);q.strokeStyle='#8a97ad';q.beginPath();q.moveTo(40,10);q.lineTo(40,Hh-25);q.lineTo(W-10,Hh-25);q.stroke();q.fillStyle='#8a97ad';q.font='12px sans-serif';q.fillText('시간 (s)',W-60,Hh-8);q.fillText('낙하 거리 (m)',4,12);
+q.strokeStyle='#1f6fd1';q.lineWidth=2;q.beginPath();for(let i=0;i<=60;i++){const t=i/60*tn,d=a+b*t+c2*t*t;i?q.lineTo(X(t),Y(d)):q.moveTo(X(t),Y(d))}q.stroke();
+q.strokeStyle='#e0731a';q.beginPath();for(let i=0;i<=60;i++){const t=i/60*tn,d=.5*G*t*t;i?q.lineTo(X(t),Y(d)):q.moveTo(X(t),Y(d))}q.setLineDash([5,4]);q.stroke();q.setLineDash([]);
+q.fillStyle='#14213a';T.forEach((t,i)=>{q.beginPath();q.arc(X(t),Y(D[i]),4,0,7);q.fill()});q.fillStyle='#1f6fd1';q.fillText('파랑: 측정값 곡선',60,24);q.fillStyle='#e0731a';q.fillText('주황 점선: 이론 ½gt²',60,40)};
+</script></body></html>
